@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src/tools/random.fs" />
+    <Compile Include="src/tools/array.fs" />
+    <Compile Include="src/tools/list.fs" />
+    <Compile Include="src/tools/option.fs" />
+    <Compile Include="src/tools/csv.fs" />
+    <Compile Include="src/grammar.fs" />
+    <Compile Include="src/search/search.fs" />
+    <Compile Include="src/result/result.fs" />
+    <Compile Include="src/result/paretoList.fs" />
+    <Compile Include="src/result/paretoTree.fs" />
+    <Compile Include="src/expand/expand.fs" />
+    <Compile Include="src/expand/memoryTests/slowedexpand.fs" />
+    <Compile Include="src/expand/memoryTests/recyclingexpand.fs" />
+    <Compile Include="src/expand/memoryTests/contractexpand.fs" />
+    <Compile Include="src/expand/memoryTests/killexpand.fs" />
+    <Compile Include="src/expand/memoryTests/oldexpand.fs" />
+    <Compile Include="src/expand/memoryTests/flatexpand.fs" />
+    <Compile Include="src/expand/memoryTests/nestedexpand.fs" />
+    <Compile Include="src/expand/memoryTests/hashexpand.fs" />
+    <Compile Include="src/expand/memoryTests/noexpand.fs" />
+    <Compile Include="src/expand/dataexpand.fs" />
+    <Compile Include="src/search/depthSearch.fs" />
+    <Compile Include="src/search/randomSearch.fs" />
+    <Compile Include="src/search/ucb/UCBSearch.fs" />
+    <Compile Include="src/search/ucb/UCBExtendedSearch.fs" />
+    <Compile Include="src/search/thompson/thompsonSearch.fs" />
+    <Compile Include="src/search/thompson/thompsonUniformSearch.fs" />
+    <Compile Include="src/search/thompson/thompsonNormalSearch.fs" />
+    <Compile Include="src/search/thompson/thompsonBetaSearch.fs" />
+    <Compile Include="src/search/thompson/thompsonMaxSearch.fs" />
+    <Compile Include="src/search/thompson/thompsonLogMaxSearch.fs" />
+    <Compile Include="src/search/thompson/thompsonNonLogMaxSearch.fs" />
+    <Compile Include="src/search/thompson/thompsonGeneralizedSearch.fs" />
+    <Compile Include="src/demo/arithmetic.fs" />
+    <Compile Include="src/demo/integerArithmetic.fs" />
+    <Compile Include="src/demo/integerPolynomial.fs" />
+    <Compile Include="src/demo/kepler.fs" />
+    <Compile Include="src/demo/twothousands.fs" />
+    <Compile Include="src/demo/prime.fs" />
+    <Compile Include="src/demo/regexp.fs" />
+    <Compile Include="src/demo/numberRegexp.fs" />
+    <Compile Include="src/demo/representationLearning.fs" />
+    <Compile Include="src/demo/iris.fs" />
+    <Compile Include="src/demo/vertebral.fs" />
+    <Compile Include="src/demo/concrete.fs" />
+    <Compile Include="src/main.fs" />
+  </ItemGroup>
+</Project>
