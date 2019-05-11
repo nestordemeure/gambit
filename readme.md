@@ -1,20 +1,13 @@
 # Symbolic regression
+### Exploring **non** genetic algorithms for symbolic regression.
 
-Exploring **non** genetic algorithms for symbolic regression.
+**This is the R&D branch. It contains F# code to quickly iterate on designs and formulas in order to test ideas and find what works and what doesn't.** 
 
 ## TODO
-
-Validate algorithms on more examples.
-
-Build pareto front instead of single best solution.
 
 study distibution of rewards in [mean;maximum] as a function of heigh (can be computed for each formula that is evaluated).
 I am expecting a shift linear in height from mean to max as height increase (wich would validate the ThompsonMax formula).
 Confirming this hypothesis and characterizing the shift could lead to a better formula and would give credance to the existing formula.
-
-Compare the formula with state of the art in monte carlo tree search (on a variety of problems? or on something significant such as alphago).
-
-Do a performance oriented implementation (in Rust ? Using a PEG parser for the grammar definition ?).
 
 ## Design
 
@@ -186,8 +179,3 @@ When we observe the distribution of corrected rewards as a function of the numbe
 When we observe the distribution of normalized reward, we notice a shift to the right (toward the max) which seem explainable by the fact that the system is not adversarial : each node underneath the current node is doing its best to help and produce a better result.
 Thus, it might be interresting to study the distribution of the x-mean
 
-## References
-
-The R package [gramEvol](https://github.com/fnoorian/gramEvol) (which uses genetic algorithm) for the user interface.
-
-The work of ??? for the use of Monte-Carlo-Tree-Search to perform symbolic regression.

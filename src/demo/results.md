@@ -1,6 +1,6 @@
 # Demo
 
-There is two way to confirm that we are better than teh state of the art :
+There is two way to confirm that we are better than the state of the art :
 - Run our code and the state of the art methods on the same machine, the same examples and, if possible, the programming language (or use a proxy such as number of calls to the evaluation function).
 However this requires a huge compatibility between all methods or the ability to reimplement them and use proper parameters (which is highly non trivial for genetic algorithms).
 - Run our code on problem solved using methods from the state of the art and show that we are better (run faster for equivalent results or provide better results all with less or simpler parameters).
