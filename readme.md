@@ -1,4 +1,5 @@
-# Gambit : Symbolic regression using Monte-Carlo tree search
+# Gambit
+###Symbolic regression using Monte-Carlo tree search
 
 **This is a work in progress.**
 
