@@ -6,7 +6,7 @@ mod grammar;
 fn main()
 {
    let depth = 4;
-   let nbIterations = 100;
-   let score = explore::search(depth, nbIterations);
-   println!("Reached {} in {} iterations.", score, nbIterations);
+   let nb_iterations = 100_000;
+   let score = explore::search(depth, nb_iterations);
+   println!("Reached {} in {} iterations.", score, nb_iterations);
 }

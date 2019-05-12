@@ -13,7 +13,7 @@ pub enum State
 }
 
 /// represents the root of a formula
-pub static rootState: State = State::Expr;
+pub static ROOTSTATE: State = State::Expr;
 
 /// expands a state into potential substitution rules
 /// an empty vector represents a terminal state  :there is no rule associated with it
@@ -32,32 +32,32 @@ pub fn expand(state: State) -> Vec<Vec<State>>
 fn compute(formula: &[State]) -> i64
 {
    /// computes the first element of the formula and returns its value followed with any leftover
-   fn computeRec(formula: &[State]) -> (i64, &[State])
+   fn compute_rec(formula: &[State]) -> (i64, &[State])
    {
       match formula
       {
          [State::One, formula..] => (1, formula),
          [State::Add, formula..] =>
          {
-            let (x, formula) = computeRec(formula);
-            let (y, formula) = computeRec(formula);
+            let (x, formula) = compute_rec(formula);
+            let (y, formula) = compute_rec(formula);
             (x + y, formula)
          }
          [State::Mul, formula..] =>
          {
-            let (x, formula) = computeRec(formula);
-            let (y, formula) = computeRec(formula);
+            let (x, formula) = compute_rec(formula);
+            let (y, formula) = compute_rec(formula);
             (x * y, formula)
          }
-         [uncomputableState, ..] => panic!("Tried to compute a non terminal state : {:?}", uncomputableState),
+         [uncomputable, ..] => panic!("Tried to compute a non terminal state : {:?}", uncomputable),
          [] => panic!("Tried to compute the empty formula.")
       }
    }
    // checks wether there is any leftover
-   match computeRec(formula)
+   match compute_rec(formula)
    {
       (result, []) => result,
-      (_, leftover) => panic!("There are some leftover states : {:?}", leftover)
+      (_, leftover) => panic!("There are some leftover states : {:?} => {:?}", formula, leftover)
    }
 }
 

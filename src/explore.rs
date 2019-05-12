@@ -1,12 +1,15 @@
 
 // random number generation
-use rand::Rng;
-use rand::SeedableRng;
-use rand_xoshiro::Xoshiro256Plus;
-
-use crate::grammar;
+use rand::FromEntropy; // for random initialisation
+use rand::Rng; // basic operations
+use rand_xoshiro::Xoshiro256Plus; // choice of generator
+                                  // data structure
 use cons_list::ConsList;
-use float_ord::FloatOrd; // to compare floats
+// float manipulation
+use float_ord::FloatOrd;
+use std::f64;
+// my modules
+use crate::grammar;
 
 //-----------------------------------------------------------------------------
 // PRIOR
@@ -14,10 +17,10 @@ use float_ord::FloatOrd; // to compare floats
 /// stores information gotten during previous runs
 struct Prior
 {
-   nbVisit: u32,
-   nbScore: u32,
-   sumScores: f64,
-   maxScore: f64
+   nb_visit: u32,
+   nb_score: u32,
+   sum_scores: f64,
+   max_score: f64
 }
 
 impl Prior
@@ -25,20 +28,20 @@ impl Prior
    /// returns a default, empty, prior
    fn default() -> Prior
    {
-      Prior { nbVisit: 0, nbScore: 0, sumScores: 0., maxScore: -std::f64::INFINITY }
+      Prior { nb_visit: 0, nb_score: 0, sum_scores: 0., max_score: -std::f64::INFINITY }
    }
 
    /// adds a score to the prior
-   fn update(&mut self, score: Option<f64>)
+   fn update(&mut self, score_opt: Option<f64>)
    {
-      self.nbVisit += 1;
-      if let Some(score) = score
+      self.nb_visit += 1;
+      if let Some(score) = score_opt
       {
-         self.nbScore += 1;
-         self.sumScores += score;
-         if score > self.maxScore
+         self.nb_score += 1;
+         self.sum_scores += score;
+         if score > self.max_score
          {
-            self.maxScore = score;
+            self.max_score = score;
          }
       }
    }
@@ -46,26 +49,24 @@ impl Prior
    /// uses the prior sample a potential score
    fn sample(&self, rng: &mut Xoshiro256Plus) -> f64
    {
-      let mean = self.sumScores / (self.nbScore as f64);
-      let max = (self.nbScore as f64).ln() * self.maxScore;
-      rng.gen_range(mean, max)
+      let exp1 = (1.0 as f64).exp();
+      let k = f64::from(self.nb_score);
+      let mean = self.sum_scores / k;
+      rng.gen_range(mean, (k + exp1).ln() * self.max_score)
    }
 
    /// gives a score to the node, we will take the node with the maximum score
-   fn score(&self, defaultPrior: &Prior, mut rng: &mut Xoshiro256Plus) -> f64
+   fn score(&self, default_prior: &Prior, mut rng: &mut Xoshiro256Plus) -> f64
    {
-      if self.nbVisit == 0
+      if self.nb_visit == 0
       {
-         std::f64::INFINITY
+         return std::f64::INFINITY;
       }
-      else
+      match rng.gen_ratio(self.nb_score + 1, self.nb_visit + 2) // laplacian smoothing
       {
-         match rng.gen_ratio(self.nbScore + 1, self.nbVisit + 2) // laplacian smoothing
-         {
-            false => -std::f64::INFINITY,
-            true if self.nbScore == 0 => defaultPrior.sample(&mut rng),
-            true => self.sample(&mut rng)
-         }
+         false => -std::f64::INFINITY,
+         true if self.nb_score == 0 => default_prior.sample(&mut rng),
+         true => self.sample(&mut rng)
       }
    }
 }
@@ -82,20 +83,20 @@ enum Tree
    },
    Node
    {
-      childrensPriors: Vec<Prior>, children: Vec<Tree>
+      childrens_priors: Vec<Prior>, children: Vec<Tree>
    }
 }
 
 /// selects the node with the maximum score
 /// breaks ties at random
 /// leafs having an infinite score, they are taken in priority
-fn bestChild(priors: &[Prior],
-             defaultPrior: &Prior,
-             mut rng: &mut Xoshiro256Plus,
-             availableDepth: i16)
-             -> usize
+fn best_child(priors: &[Prior],
+              default_prior: &Prior,
+              mut rng: &mut Xoshiro256Plus,
+              available_depth: i16)
+              -> usize
 {
-   if availableDepth <= 0
+   if available_depth <= 0
    {
       0
    }
@@ -104,7 +105,7 @@ fn bestChild(priors: &[Prior],
       let (index, _) =
          priors.iter()
                .enumerate()
-               .max_by_key(|&(_, prior)| (FloatOrd(prior.score(defaultPrior, &mut rng)), rng.gen::<usize>()))
+               .max_by_key(|&(_, prior)| (FloatOrd(prior.score(default_prior, &mut rng)), rng.gen::<usize>()))
                .expect("Tried to find the best child in an empty array.");
       index
    }
@@ -122,7 +123,7 @@ enum ReturnType
 }
 
 /// if the result does not have a tree, we inject the given tree
-fn newTree(result: (ReturnType, Option<f64>), tree: Tree) -> (ReturnType, Option<f64>)
+fn new_tree(result: (ReturnType, Option<f64>), tree: Tree) -> (ReturnType, Option<f64>)
 {
    match result
    {
@@ -144,31 +145,29 @@ fn concat(head: &[grammar::State], tail: &ConsList<grammar::State>) -> ConsList<
 }
 
 /// reverse a formula into a vector
-fn reverse(formula: &ConsList<grammar::State>) -> Vec<grammar::State>
+fn to_vector(formula: &ConsList<grammar::State>) -> Vec<grammar::State>
 {
-   let mut vector: Vec<grammar::State> = formula.iter().cloned().collect();
-   vector.reverse();
-   vector
+   formula.iter().cloned().collect()
 }
 
 //-----------------------------------------------------------------------------
 // EXPAND
 
 fn expand(tree: &mut Tree,
-          rootPrior: &Prior,
+          prior_root: &Prior,
           mut rng: &mut Xoshiro256Plus,
-          availableDepth: i16)
+          available_depth: i16)
           -> (ReturnType, Option<f64>)
 {
    match tree
    {
-      Tree::Node { ref mut childrensPriors, ref mut children } =>
+      Tree::Node { ref mut childrens_priors, ref mut children } =>
       {
-         let indexBestChildren = bestChild(&childrensPriors, &rootPrior, &mut rng, availableDepth);
-         let (action, score) = expand(&mut children[indexBestChildren],
-                                      &childrensPriors[indexBestChildren],
+         let index_best_child = best_child(&childrens_priors, &prior_root, &mut rng, available_depth);
+         let (action, score) = expand(&mut children[index_best_child],
+                                      &childrens_priors[index_best_child],
                                       &mut rng,
-                                      availableDepth);
+                                      available_depth);
          match action
          {
             ReturnType::DeleteChild if children.len() == 1 =>
@@ -179,21 +178,21 @@ fn expand(tree: &mut Tree,
             ReturnType::DeleteChild =>
             {
                // we can remove this child from the node
-               children.remove(indexBestChildren);
-               childrensPriors.remove(indexBestChildren);
+               children.remove(index_best_child);
+               childrens_priors.remove(index_best_child);
                (ReturnType::DoNothing, score)
             }
             ReturnType::DoNothing =>
             {
                // we can update the child's prior
-               childrensPriors[indexBestChildren].update(score);
+               childrens_priors[index_best_child].update(score);
                (action, score)
             }
-            ReturnType::NewTree(childTree) =>
+            ReturnType::NewTree(child_tree) =>
             {
                // we can replace this child and update its prior
-               children[indexBestChildren] = childTree;
-               childrensPriors[indexBestChildren].update(score);
+               children[index_best_child] = child_tree;
+               childrens_priors[index_best_child].update(score);
                (ReturnType::DoNothing, score)
             }
          }
@@ -209,36 +208,36 @@ fn expand(tree: &mut Tree,
             {
                // terminal state
                let formula = formula.append(state);
-               let mut newLeaf = Tree::Leaf { formula, stack };
-               let result = expand(&mut newLeaf, rootPrior, &mut rng, availableDepth);
-               newTree(result, newLeaf)
+               let mut new_leaf = Tree::Leaf { formula, stack };
+               let result = expand(&mut new_leaf, prior_root, &mut rng, available_depth);
+               new_tree(result, new_leaf)
             }
             [rule] =>
             {
                // single rule, we can focus on it
                let stack = concat(rule, &stack);
-               let mut newLeaf = Tree::Leaf { formula: formula.clone(), stack };
-               let result = expand(&mut newLeaf, rootPrior, &mut rng, availableDepth);
-               newTree(result, newLeaf)
+               let mut new_leaf = Tree::Leaf { formula: formula.clone(), stack };
+               let result = expand(&mut new_leaf, prior_root, &mut rng, available_depth);
+               new_tree(result, new_leaf)
             }
             rules =>
             {
                // non terminal state, we build a node
-               let childrensPriors = (0..rules.len()).map(|_| Prior::default()).collect();
+               let childrens_priors = (0..rules.len()).map(|_| Prior::default()).collect();
                let children = rules.iter()
                                    .map(|rule| concat(rule, &stack))
                                    .map(|stack| Tree::Leaf { formula: formula.clone(), stack })
                                    .collect();
-               let mut newNode = Tree::Node { childrensPriors, children };
-               let result = expand(&mut newNode, rootPrior, &mut rng, availableDepth - 1);
-               newTree(result, newNode)
+               let mut new_node = Tree::Node { childrens_priors, children };
+               let result = expand(&mut new_node, prior_root, &mut rng, available_depth - 1);
+               new_tree(result, new_node)
             }
          }
       }
-      Tree::Leaf { formula, stack } =>
+      Tree::Leaf { formula, .. } =>
       {
          // terminal leaf, we evaluate the formula and backpropagate
-         let score = grammar::evaluate(&reverse(&formula));
+         let score = grammar::evaluate(&to_vector(&formula));
          (ReturnType::DeleteChild, score)
       }
    }
@@ -250,27 +249,27 @@ fn expand(tree: &mut Tree,
 /// performs the search for a given number of iterations
 /// TODO add arbitrary result
 /// TODO add arbitrary grammar
-pub fn search(availableDepth: i16, nbIterations: u64) -> f64
+pub fn search(available_depth: i16, nb_iterations: u64) -> f64
 {
-   let mut rng = Xoshiro256Plus::seed_from_u64(0);
-   let mut rootPrior = Prior::default();
-   let mut tree = Tree::Leaf { formula: ConsList::new(), stack: ConsList::new().append(grammar::rootState) };
-   for iteration in 0..nbIterations
+   let mut rng = Xoshiro256Plus::from_entropy();
+   let mut prior_root = Prior::default();
+   let mut tree = Tree::Leaf { formula: ConsList::new(), stack: ConsList::new().append(grammar::ROOTSTATE) };
+   for _ in 0..nb_iterations
    {
-      let (action, score) = expand(&mut tree, &rootPrior, &mut rng, availableDepth);
-      rootPrior.update(score);
+      let (action, score) = expand(&mut tree, &prior_root, &mut rng, available_depth);
+      prior_root.update(score);
       // TODO update result
       match action
       {
-         ReturnType::NewTree(updatedTree) =>
+         ReturnType::NewTree(updated_tree) =>
          {
-            tree = updatedTree;
+            tree = updated_tree;
          }
          ReturnType::DeleteChild => break,
          ReturnType::DoNothing => ()
       }
    }
-   rootPrior.maxScore
+   prior_root.max_score
 }
 
 // TODO add backpropagation of formula to result
