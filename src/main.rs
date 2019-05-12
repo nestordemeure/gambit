@@ -1,20 +1,12 @@
-#[macro_use]
-extern crate cons;
-extern crate cons_list;
+#![feature(slice_patterns)]
 
 mod explore;
 mod grammar;
 
-//-----------------------------------------------------------------------------
-// MAIN
-
 fn main()
 {
-   println!("Hello, world!");
+   let depth = 4;
+   let nbIterations = 100;
+   let score = explore::search(depth, nbIterations);
+   println!("Reached {} in {} iterations.", score, nbIterations);
 }
-
-/*
-   implement a simple test grammar
-   implement expand with thompson max
-   run it on test grammar
-*/

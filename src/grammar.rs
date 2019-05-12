@@ -1,13 +1,9 @@
-#[macro_use]
-use cons;
-use cons_list::ConsList;
-
 /*
    an implementation of the, very simple, 2019 grammar
 */
 
 /// represents a state
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum State
 {
    Expr,
@@ -17,57 +13,58 @@ pub enum State
 }
 
 /// represents the root of a formula
-static rootState: State = State::Expr;
+pub static rootState: State = State::Expr;
 
 /// expands a state into potential substitution rules
 /// an empty vector represents a terminal state  :there is no rule associated with it
-pub fn expand(state: &State) -> Vec<ConsList<State>>
+pub fn expand(state: State) -> Vec<Vec<State>>
 {
    match state
    {
-      State::Expr => vec![cons!(State::One),
-                          conslist!(State::Add, State::Expr, State::Expr),
-                          conslist!(State::Mul, State::Expr, State::Expr)],
+      State::Expr => vec![vec![State::One], vec![State::Add, State::Expr, State::Expr], vec![State::Mul,
+                                                                                             State::Expr,
+                                                                                             State::Expr]],
       _ => vec![]
    }
 }
 
 /// computes a formula
-fn compute(formula: ConsList<State>) -> i64
+fn compute(formula: &[State]) -> i64
 {
    /// computes the first element of the formula and returns its value followed with any leftover
-   fn computeRec(formula: ConsList<State>) -> (i64, ConsList<State>)
+   fn computeRec(formula: &[State]) -> (i64, &[State])
    {
-      match formula.head()
+      match formula
       {
-         Some(State::One) => (1, formula.tail()),
-         Some(State::Add) =>
+         [State::One, formula..] => (1, formula),
+         [State::Add, formula..] =>
          {
-            let (x, formula) = computeRec(formula.tail());
-            let (y, formula) = computeRec(formula.tail());
-            (x + y, formula.tail())
+            let (x, formula) = computeRec(formula);
+            let (y, formula) = computeRec(formula);
+            (x + y, formula)
          }
-         Some(State::Mul) =>
+         [State::Mul, formula..] =>
          {
-            let (x, formula) = computeRec(formula.tail());
-            let (y, formula) = computeRec(formula.tail());
-            (x * y, formula.tail())
+            let (x, formula) = computeRec(formula);
+            let (y, formula) = computeRec(formula);
+            (x * y, formula)
          }
-         Some(uncomputableState) => panic!("Tried to compute a non terminal state : {:?}", uncomputableState),
-         None => panic!("Tried to compute the empty formula.")
+         [uncomputableState, ..] => panic!("Tried to compute a non terminal state : {:?}", uncomputableState),
+         [] => panic!("Tried to compute the empty formula.")
       }
    }
-   /// checks wether there is any leftover
+   // checks wether there is any leftover
    match computeRec(formula)
    {
-      (result, ref emptyFormula) if emptyFormula.is_empty() => result,
+      (result, []) => result,
       (_, leftover) => panic!("There are some leftover states : {:?}", leftover)
    }
 }
 
 /// evaluates a formula
-pub fn evaluate(formula: ConsList<State>) -> f64
+pub fn evaluate(formula: &[State]) -> Option<f64>
 {
    let value = compute(formula);
-   (2019 - value) as f64
+   let score = (2019 - value) as f64;
+   Some(score)
 }

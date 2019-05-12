@@ -5,5 +5,7 @@ authors = ["Nestor Demeure"]
 edition = "2018"
 
 [dependencies]
-cons = "0.0.3"
 cons-list = "0.0.3"
+rand = "0.6.5"
+rand_xoshiro = "0.1.0"
+float-ord = "0.2.0"
