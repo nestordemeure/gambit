@@ -5,3 +5,5 @@ authors = ["Nestor Demeure"]
 edition = "2018"
 
 [dependencies]
+cons = "0.0.3"
+cons-list = "0.0.3"
