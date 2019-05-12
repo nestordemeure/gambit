@@ -83,7 +83,8 @@ enum Tree
    },
    Node
    {
-      childrens_priors: Vec<Prior>, children: Vec<Tree>
+      childrens_priors: Vec<Prior>,
+      children: Vec<Tree> // Box<[Prior]>
    }
 }
 
@@ -150,6 +151,22 @@ fn to_vector(formula: &ConsList<grammar::State>) -> Vec<grammar::State>
    formula.iter().cloned().collect()
 }
 
+/// slight modification of swap_remove from the Vec section of the std
+/// https://github.com/rust-lang/rust/blob/master/src/liballoc/vec.rs
+/*fn swap_remove<T>(a: &mut Box<[T]>, index: usize)
+{
+   unsafe
+   {
+      // We replace self[index] with the last element. Note that if the
+      // bounds check on hole succeeds there must be a last element (which
+      // can be self[index] itself).
+      let hole: *mut T = &mut a[index];
+      let last = std::ptr::read(a.get_unchecked(a.len() - 1));
+      a.length -= 1;
+      std::ptr::replace(hole, last);
+   }
+}*/
+
 //-----------------------------------------------------------------------------
 // EXPAND
 
@@ -178,8 +195,8 @@ fn expand(tree: &mut Tree,
             ReturnType::DeleteChild =>
             {
                // we can remove this child from the node
-               children.remove(index_best_child);
-               childrens_priors.remove(index_best_child);
+               children.swap_remove(index_best_child);
+               childrens_priors.swap_remove(index_best_child);
                (ReturnType::DoNothing, score)
             }
             ReturnType::DoNothing =>
