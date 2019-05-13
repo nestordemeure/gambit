@@ -1,17 +1,16 @@
 
 // random number generation
-use rand::FromEntropy; // for random initialisation
+//use rand::FromEntropy; // for random initialisation
 use rand::Rng; // basic operations
+use rand::SeedableRng; // to get reproducible runs
 use rand_xoshiro::Xoshiro256Plus; // choice of generator
-                                  // data structure
-use cons_list::ConsList;
-// float manipulation
+                                  // float manipulation
 use float_ord::FloatOrd;
 use std::f64;
-// my modules
+// memory measure
+use systemstat::{Platform, System}; // to measure memory use
+                                    // my modules
 use crate::grammar;
-
-use systemstat::{Platform, System};
 
 //-----------------------------------------------------------------------------
 // PRIOR
@@ -19,8 +18,8 @@ use systemstat::{Platform, System};
 /// stores information gotten during previous runs
 struct Prior
 {
-   nb_visit: u32,
-   nb_score: u32,
+   nb_visit: u64,
+   nb_score: u64,
    sum_scores: f64,
    max_score: f64
 }
@@ -52,9 +51,9 @@ impl Prior
    fn sample(&self, rng: &mut Xoshiro256Plus) -> f64
    {
       let exp1 = (1.0 as f64).exp();
-      let k = f64::from(self.nb_score);
+      let k = self.nb_score as f64;
       let mean = self.sum_scores / k;
-      rng.gen_range(mean, (k + exp1).ln() * self.max_score)
+      rng.gen_range(mean, (k + exp1).ln() * (self.max_score) as f64)
    }
 
    /// gives a score to the node, we will take the node with the maximum score
@@ -64,7 +63,7 @@ impl Prior
       {
          return std::f64::INFINITY;
       }
-      match rng.gen_ratio(self.nb_score + 1, self.nb_visit + 2) // laplacian smoothing
+      match rng.gen_ratio((self.nb_score + 1) as u32, (self.nb_visit + 2) as u32) // laplacian smoothing
       {
          false => -std::f64::INFINITY,
          true if self.nb_score == 0 => default_prior.sample(&mut rng),
@@ -81,7 +80,7 @@ enum Tree
 {
    Leaf
    {
-      formula: ConsList<grammar::State>, stack: ConsList<grammar::State>
+      formula: Vec<grammar::State>, stack: Vec<grammar::State>
    },
    Node
    {
@@ -139,40 +138,9 @@ fn new_tree(result: (ReturnType, Option<f64>), tree: Tree) -> (ReturnType, Optio
 // to do so we would need to pass the father node to its child or at least the index of the child and its vectors
 
 //-----------------------------------------------------------------------------
-// FORMULA
-
-/// adds a vector on top of a conslist
-fn concat(head: &[grammar::State], tail: &ConsList<grammar::State>) -> ConsList<grammar::State>
-{
-   head.iter().fold(tail.clone(), |result, state| result.append(*state))
-}
-
-/// reverse a formula into a vector
-fn to_vector(formula: &ConsList<grammar::State>) -> Vec<grammar::State>
-{
-   formula.iter().cloned().collect()
-}
-
-/// slight modification of swap_remove from the Vec section of the std
-/// https://github.com/rust-lang/rust/blob/master/src/liballoc/vec.rs
-/*fn swap_remove<T>(a: &mut Box<[T]>, index: usize)
-{
-   unsafe
-   {
-      // We replace self[index] with the last element. Note that if the
-      // bounds check on hole succeeds there must be a last element (which
-      // can be self[index] itself).
-      let hole: *mut T = &mut a[index];
-      let last = std::ptr::read(a.get_unchecked(a.len() - 1));
-      a.length -= 1;
-      std::ptr::replace(hole, last);
-   }
-}*/
-
-//-----------------------------------------------------------------------------
 // EXPAND
 
-fn expand(tree: &mut Tree,
+fn expand(mut tree: &mut Tree,
           prior_root: &Prior,
           mut rng: &mut Xoshiro256Plus,
           available_depth: i16)
@@ -219,32 +187,31 @@ fn expand(tree: &mut Tree,
       Tree::Leaf { formula, stack } if !stack.is_empty() =>
       {
          // non terminal leaf, we expand into a node
-         let state = *stack.head().unwrap();
-         let stack = stack.tail();
+         let state = stack.pop().unwrap();
          match grammar::expand(state).as_slice()
          {
             [] =>
             {
                // terminal state
-               let formula = formula.append(state);
-               let mut new_leaf = Tree::Leaf { formula, stack };
-               let result = expand(&mut new_leaf, prior_root, &mut rng, available_depth);
-               new_tree(result, new_leaf)
+               formula.push(state);
+               expand(&mut tree, prior_root, &mut rng, available_depth)
             }
             [rule] =>
             {
                // single rule, we can focus on it
-               let stack = concat(rule, &stack);
-               let mut new_leaf = Tree::Leaf { formula: formula.clone(), stack };
-               let result = expand(&mut new_leaf, prior_root, &mut rng, available_depth);
-               new_tree(result, new_leaf)
+               stack.extend(rule);
+               expand(&mut tree, prior_root, &mut rng, available_depth)
             }
             rules =>
             {
                // non terminal state, we build a node
                let childrens_priors = (0..rules.len()).map(|_| Prior::default()).collect();
                let children = rules.iter()
-                                   .map(|rule| concat(rule, &stack))
+                                   .map(|rule| {
+                                      let mut s = stack.clone();
+                                      s.extend(rule);
+                                      s
+                                   })
                                    .map(|stack| Tree::Leaf { formula: formula.clone(), stack })
                                    .collect();
                let mut new_node = Tree::Node { childrens_priors, children };
@@ -256,7 +223,8 @@ fn expand(tree: &mut Tree,
       Tree::Leaf { formula, .. } =>
       {
          // terminal leaf, we evaluate the formula and backpropagate
-         let score = grammar::evaluate(&to_vector(&formula));
+         formula.reverse();
+         let score = grammar::evaluate(&formula);
          (ReturnType::DeleteChild, score)
       }
    }
@@ -285,9 +253,9 @@ pub fn search(available_depth: i16, nb_iterations: u64) -> f64
    let system = System::new();
    let memory_before = memory_usage(&system);
 
-   let mut rng = Xoshiro256Plus::from_entropy();
+   let mut rng = Xoshiro256Plus::seed_from_u64(0); //from_entropy();
    let mut prior_root = Prior::default();
-   let mut tree = Tree::Leaf { formula: ConsList::new(), stack: ConsList::new().append(grammar::ROOTSTATE) };
+   let mut tree = Tree::Leaf { formula: vec![], stack: vec![grammar::ROOTSTATE] };
    for _ in 0..nb_iterations
    {
       let (action, score) = expand(&mut tree, &prior_root, &mut rng, available_depth);
@@ -313,9 +281,10 @@ pub fn search(available_depth: i16, nb_iterations: u64) -> f64
 }
 
 /*
-   100_000 iterations
-   memory usage with conslist : 620Mo
-   with vects :
+   100_000 iterations what is the memory usage ?
+   baseline with conslist : 660Mo
+   with vects : 433Mo
+   (measures with seed=0 to help with reproducibility)
 */
 
 /*
