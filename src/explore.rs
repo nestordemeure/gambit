@@ -11,6 +11,8 @@ use std::f64;
 // my modules
 use crate::grammar;
 
+use systemstat::{Platform, System};
+
 //-----------------------------------------------------------------------------
 // PRIOR
 
@@ -263,11 +265,26 @@ fn expand(tree: &mut Tree,
 //-----------------------------------------------------------------------------
 // SEARCH
 
+/// returns the memory use in bytes
+fn memory_usage<P>(system: &P) -> usize
+   where P: Platform
+{
+   match system.memory()
+   {
+      Ok(mem) => (mem.total - mem.free).as_usize(),
+      Err(x) => panic!("Unable to measure memory: {}", x)
+   }
+}
+
 /// performs the search for a given number of iterations
 /// TODO add arbitrary result
 /// TODO add arbitrary grammar
 pub fn search(available_depth: i16, nb_iterations: u64) -> f64
 {
+   // memory use for benchmarking purposes
+   let system = System::new();
+   let memory_before = memory_usage(&system);
+
    let mut rng = Xoshiro256Plus::from_entropy();
    let mut prior_root = Prior::default();
    let mut tree = Tree::Leaf { formula: ConsList::new(), stack: ConsList::new().append(grammar::ROOTSTATE) };
@@ -286,7 +303,33 @@ pub fn search(available_depth: i16, nb_iterations: u64) -> f64
          ReturnType::DoNothing => ()
       }
    }
+
+   // display the memory used by the tree
+   // (under the assumption that there is no other memory consummer on the computeur)
+   let memory_after = memory_usage(&system);
+   println!("memory consumption: {} Mo", (memory_after - memory_before) / 1_000_000);
+
    prior_root.max_score
 }
 
-// TODO add backpropagation of formula to result
+/*
+   100_000 iterations
+   memory usage with conslist : 620Mo
+   with vects :
+*/
+
+/*
+   we can measure memory use at regular intervals to stop consumming it when we are a few hundreds of Mo before the end of the RAM
+   it does not matter wether we are the one using the memory we just want to avoid crashing the computeur
+
+   let sys = System::new();
+   match sys.memory()
+   {
+      Ok(mem) => println!("\nMemory: {} used / {} ({} bytes)",
+                          mem.total - mem.free,
+                          mem.total,
+                          (mem.total - mem.free).as_usize()),
+      Err(x) => println!("\nMemory: error: {}", x)
+   }
+   // 1Go = 1000000000 bytes
+*/
