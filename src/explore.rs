@@ -207,11 +207,7 @@ fn expand(mut tree: &mut Tree,
                // non terminal state, we build a node
                let childrens_priors = (0..rules.len()).map(|_| Prior::default()).collect();
                let children = rules.iter()
-                                   .map(|rule| {
-                                      let mut s = stack.clone();
-                                      s.extend(rule);
-                                      s
-                                   })
+                                   .map(|rule| stack.iter().chain(rule).cloned().collect())
                                    .map(|stack| Tree::Leaf { formula: formula.clone(), stack })
                                    .collect();
                let mut new_node = Tree::Node { childrens_priors, children };
@@ -223,7 +219,6 @@ fn expand(mut tree: &mut Tree,
       Tree::Leaf { formula, .. } =>
       {
          // terminal leaf, we evaluate the formula and backpropagate
-         formula.reverse();
          let score = grammar::evaluate(&formula);
          (ReturnType::DeleteChild, score)
       }
@@ -283,7 +278,7 @@ pub fn search(available_depth: i16, nb_iterations: u64) -> f64
 /*
    100_000 iterations what is the memory usage ?
    baseline with conslist : 660Mo
-   with vects : 433Mo
+   with vects : 420Mo
    (measures with seed=0 to help with reproducibility)
 */
 

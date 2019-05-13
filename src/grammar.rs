@@ -36,20 +36,20 @@ fn compute(formula: &[State]) -> i64
    {
       match formula
       {
-         [State::One, formula..] => (1, formula),
-         [State::Add, formula..] =>
+         [formula.., State::One] => (1, formula),
+         [formula.., State::Add] =>
          {
             let (x, formula) = compute_rec(formula);
             let (y, formula) = compute_rec(formula);
             (x + y, formula)
          }
-         [State::Mul, formula..] =>
+         [formula.., State::Mul] =>
          {
             let (x, formula) = compute_rec(formula);
             let (y, formula) = compute_rec(formula);
             (x * y, formula)
          }
-         [uncomputable, ..] => panic!("Tried to compute a non terminal state : {:?}", uncomputable),
+         [.., uncomputable] => panic!("Tried to compute a non terminal state : {:?}", uncomputable),
          [] => panic!("Tried to compute the empty formula.")
       }
    }
