@@ -2,13 +2,16 @@
 
 mod explore;
 mod grammar;
+mod distribution;
 mod test;
-use test::grammar2019;
+use explore::search;
+use distribution::thompson_max::ThompsonMax;
+use test::grammar2019::State;
 
 fn main()
 {
    let depth = 4;
    let nb_iterations = 200_000;
-   let score = explore::search::<grammar2019::State>(depth, nb_iterations);
+   let score = search::<State, ThompsonMax>(depth, nb_iterations);
    println!("Reached {} in {} iterations.", score, nb_iterations);
 }

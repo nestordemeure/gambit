@@ -17,4 +17,6 @@ pub trait Grammar
    fn evaluate(formula: &[Self]) -> Option<f64>;
 }
 
+// TODO is there an existin to_string trait ?
+// TODO should we encapsulate a formula inside a struct
 // TODO implement macro that derive grammar from simple representation
