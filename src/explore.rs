@@ -4,13 +4,16 @@
 use rand::Rng; // basic operations
 use rand::SeedableRng; // to get reproducible runs
 use rand_xoshiro::Xoshiro256Plus; // choice of generator
-                                  // float manipulation
+
+// float manipulation
 use float_ord::FloatOrd;
 use std::f64;
+
 // memory measure
 use systemstat::{Platform, System}; // to measure memory use
-                                    // my modules
-use crate::grammar;
+
+// my modules
+use crate::grammar::Grammar;
 
 //-----------------------------------------------------------------------------
 // PRIOR
@@ -50,10 +53,11 @@ impl Prior
    /// uses the prior sample a potential score
    fn sample(&self, rng: &mut Xoshiro256Plus) -> f64
    {
-      let exp1 = (1.0 as f64).exp();
+      let e = f64::exp(1.);
       let k = self.nb_score as f64;
       let mean = self.sum_scores / k;
-      rng.gen_range(mean, (k + exp1).ln() * (self.max_score) as f64)
+      let sup = f64::ln(k + e) * self.max_score;
+      rng.gen_range(mean, sup)
    }
 
    /// gives a score to the node, we will take the node with the maximum score
@@ -76,16 +80,15 @@ impl Prior
 // TREE
 
 /// either a leaf with a current formula or a node with several children and their prior
-enum Tree
+enum Tree<State> where State:Grammar
 {
    Leaf
    {
-      formula: Vec<grammar::State>, stack: Vec<grammar::State>
+      formula: Vec<State>, stack: Vec<State>
    },
    Node
    {
-      childrens_priors: Vec<Prior>,
-      children: Vec<Tree> // Box<[Prior]>
+      children: Vec<Tree<State>>, childrens_priors: Vec<Prior>
    }
 }
 
@@ -114,18 +117,18 @@ fn best_child(priors: &[Prior],
 }
 
 //-----------------------------------------------------------------------------
-// RETURN
+// EXPAND
 
 /// represents the output of an expand operation
-enum ReturnType
+enum ReturnType<Tree>
 {
    NewTree(Tree),
    DeleteChild,
    DoNothing
 }
 
-/// if the result does not have a tree, we inject the given tree
-fn new_tree(result: (ReturnType, Option<f64>), tree: Tree) -> (ReturnType, Option<f64>)
+/// if the result does not modify the tree, we inject the given tree
+fn new_tree<State:Grammar>(result: (ReturnType<Tree<State>>, Option<f64>), tree: Tree<State>) -> (ReturnType<Tree<State>>, Option<f64>)
 {
    match result
    {
@@ -134,17 +137,13 @@ fn new_tree(result: (ReturnType, Option<f64>), tree: Tree) -> (ReturnType, Optio
    }
 }
 
-// we might be able to accomplish the needed action as we detect it instead of checking a ReturnType
-// to do so we would need to pass the father node to its child or at least the index of the child and its vectors
-
-//-----------------------------------------------------------------------------
-// EXPAND
-
-fn expand(mut tree: &mut Tree,
+/// takes a tree, its prior, a random number generator and the available depth and expand the tree
+/// return the result of the expansion as a (ReturnType, Option<score>)
+fn expand<State:Grammar>(mut tree: &mut Tree<State>,
           prior_root: &Prior,
           mut rng: &mut Xoshiro256Plus,
           available_depth: i16)
-          -> (ReturnType, Option<f64>)
+          -> (ReturnType<Tree<State>>, Option<f64>)
 {
    match tree
    {
@@ -160,13 +159,16 @@ fn expand(mut tree: &mut Tree,
             ReturnType::DeleteChild if children.len() == 1 =>
             {
                // no more child if we remove this child : we can remove this node
-               (ReturnType::DeleteChild, score)
+               (action, score)
             }
             ReturnType::DeleteChild =>
             {
                // we can remove this child from the node
                children.swap_remove(index_best_child);
                childrens_priors.swap_remove(index_best_child);
+               // save a bit of memory since it matters more than speed
+               children.shrink_to_fit();
+               childrens_priors.shrink_to_fit();
                (ReturnType::DoNothing, score)
             }
             ReturnType::DoNothing =>
@@ -188,7 +190,7 @@ fn expand(mut tree: &mut Tree,
       {
          // non terminal leaf, we expand into a node
          let state = stack.pop().unwrap();
-         match grammar::expand(state).as_slice()
+         match state.expand().as_slice()
          {
             [] =>
             {
@@ -207,9 +209,9 @@ fn expand(mut tree: &mut Tree,
                // non terminal state, we build a node
                let childrens_priors = (0..rules.len()).map(|_| Prior::default()).collect();
                let children = rules.iter()
-                                   .map(|rule| stack.iter().chain(rule).cloned().collect())
-                                   .map(|stack| Tree::Leaf { formula: formula.clone(), stack })
-                                   .collect();
+                                              .map(|rule| stack.iter().chain(rule).cloned().collect())
+                                              .map(|stack| Tree::Leaf { formula: formula.clone(), stack })
+                                              .collect();
                let mut new_node = Tree::Node { childrens_priors, children };
                let result = expand(&mut new_node, prior_root, &mut rng, available_depth - 1);
                new_tree(result, new_node)
@@ -219,7 +221,7 @@ fn expand(mut tree: &mut Tree,
       Tree::Leaf { formula, .. } =>
       {
          // terminal leaf, we evaluate the formula and backpropagate
-         let score = grammar::evaluate(&formula);
+         let score = State::evaluate(&formula);
          (ReturnType::DeleteChild, score)
       }
    }
@@ -242,7 +244,7 @@ fn memory_usage<P>(system: &P) -> usize
 /// performs the search for a given number of iterations
 /// TODO add arbitrary result
 /// TODO add arbitrary grammar
-pub fn search(available_depth: i16, nb_iterations: u64) -> f64
+pub fn search<State:Grammar>(available_depth: i16, nb_iterations: u64) -> f64
 {
    // memory use for benchmarking purposes
    let system = System::new();
@@ -250,7 +252,7 @@ pub fn search(available_depth: i16, nb_iterations: u64) -> f64
 
    let mut rng = Xoshiro256Plus::seed_from_u64(0); //from_entropy();
    let mut prior_root = Prior::default();
-   let mut tree = Tree::Leaf { formula: vec![], stack: vec![grammar::ROOTSTATE] };
+   let mut tree = Tree::Leaf { formula: vec![], stack: vec![State::root_state()] };
    for _ in 0..nb_iterations
    {
       let (action, score) = expand(&mut tree, &prior_root, &mut rng, available_depth);
@@ -258,10 +260,7 @@ pub fn search(available_depth: i16, nb_iterations: u64) -> f64
       // TODO update result
       match action
       {
-         ReturnType::NewTree(updated_tree) =>
-         {
-            tree = updated_tree;
-         }
+         ReturnType::NewTree(updated_tree) => tree = updated_tree,
          ReturnType::DeleteChild => break,
          ReturnType::DoNothing => ()
       }
