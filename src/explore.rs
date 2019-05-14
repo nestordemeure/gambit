@@ -12,6 +12,7 @@ use systemstat::{Platform, System}; // to measure memory use
 
 use crate::distribution::Distribution;
 use crate::grammar::Grammar;
+use crate::result::Result;
 
 //-----------------------------------------------------------------------------
 // TREE
@@ -70,15 +71,15 @@ fn best_child<Distr, RNG>(distributions: &[Distr],
 }
 
 /// if the result does not modify the tree, we inject the given tree
-fn new_tree<State, Distr>(result: (ReturnType<Tree<State, Distr>>, Option<f64>),
+fn new_tree<State, Distr>(result: (ReturnType<Tree<State, Distr>>, Vec<State>, Option<f64>),
                           tree: Tree<State, Distr>)
-                          -> (ReturnType<Tree<State, Distr>>, Option<f64>)
+                          -> (ReturnType<Tree<State, Distr>>, Vec<State>, Option<f64>)
    where State: Grammar,
          Distr: Distribution
 {
    match result
    {
-      (ReturnType::DoNothing, score) => (ReturnType::NewTree(tree), score),
+      (ReturnType::DoNothing, formula, score) => (ReturnType::NewTree(tree), formula, score),
       _ => result
    }
 }
@@ -87,12 +88,12 @@ fn new_tree<State, Distr>(result: (ReturnType<Tree<State, Distr>>, Option<f64>),
 // EXPAND
 
 /// takes a tree, its prior, a random number generator and the available depth and expand the tree
-/// return the result of the expansion as a (ReturnType, Option<score>)
+/// return the result of the expansion as a (ReturnType, formula, Option<score>)
 fn expand<State, Distr, RNG>(mut tree: &mut Tree<State, Distr>,
                              distribution_root: &Distr,
-                             mut rng: &mut RNG,
+                             rng: &mut RNG,
                              available_depth: i16)
-                             -> (ReturnType<Tree<State, Distr>>, Option<f64>)
+                             -> (ReturnType<Tree<State, Distr>>, Vec<State>, Option<f64>)
    where State: Grammar,
          Distr: Distribution,
          RNG: Rng
@@ -101,18 +102,17 @@ fn expand<State, Distr, RNG>(mut tree: &mut Tree<State, Distr>,
    {
       Tree::Node { ref mut childrens_distributions, ref mut children } =>
       {
-         let index_best_child =
-            best_child(&childrens_distributions, &distribution_root, &mut rng, available_depth);
-         let (action, score) = expand(&mut children[index_best_child],
-                                      &childrens_distributions[index_best_child],
-                                      &mut rng,
-                                      available_depth);
+         let index_best_child = best_child(childrens_distributions, distribution_root, rng, available_depth);
+         let (action, formula, score) = expand(&mut children[index_best_child],
+                                               &childrens_distributions[index_best_child],
+                                               rng,
+                                               available_depth);
          match action
          {
             ReturnType::DeleteChild if children.len() == 1 =>
             {
                // no more child if we remove this child : we can remove this node
-               (action, score)
+               (action, formula, score)
             }
             ReturnType::DeleteChild =>
             {
@@ -122,20 +122,20 @@ fn expand<State, Distr, RNG>(mut tree: &mut Tree<State, Distr>,
                // save a bit of memory since it matters more than speed
                children.shrink_to_fit();
                childrens_distributions.shrink_to_fit();
-               (ReturnType::DoNothing, score)
+               (ReturnType::DoNothing, formula, score)
             }
             ReturnType::DoNothing =>
             {
                // we can update the child's prior
                childrens_distributions[index_best_child].update(score);
-               (action, score)
+               (action, formula, score)
             }
             ReturnType::NewTree(child_tree) =>
             {
                // we can replace this child and update its prior
                children[index_best_child] = child_tree;
                childrens_distributions[index_best_child].update(score);
-               (ReturnType::DoNothing, score)
+               (ReturnType::DoNothing, formula, score)
             }
          }
       }
@@ -149,13 +149,13 @@ fn expand<State, Distr, RNG>(mut tree: &mut Tree<State, Distr>,
             {
                // terminal state
                formula.push(state);
-               expand(&mut tree, distribution_root, &mut rng, available_depth)
+               expand(&mut tree, distribution_root, rng, available_depth)
             }
             [rule] =>
             {
                // single rule, we can focus on it
                stack.extend(rule);
-               expand(&mut tree, distribution_root, &mut rng, available_depth)
+               expand(&mut tree, distribution_root, rng, available_depth)
             }
             rules =>
             {
@@ -166,7 +166,7 @@ fn expand<State, Distr, RNG>(mut tree: &mut Tree<State, Distr>,
                                    .map(|stack| Tree::Leaf { formula: formula.clone(), stack })
                                    .collect();
                let mut new_node = Tree::Node { childrens_distributions, children };
-               let result = expand(&mut new_node, distribution_root, &mut rng, available_depth - 1);
+               let result = expand(&mut new_node, distribution_root, rng, available_depth - 1);
                new_tree(result, new_node)
             }
          }
@@ -175,7 +175,7 @@ fn expand<State, Distr, RNG>(mut tree: &mut Tree<State, Distr>,
       {
          // terminal leaf, we evaluate the formula and backpropagate
          let score = State::evaluate(&formula);
-         (ReturnType::DeleteChild, score)
+         (ReturnType::DeleteChild, formula.clone(), score)
       }
    }
 }
@@ -197,9 +197,10 @@ fn memory_usage<P>(system: &P) -> usize
 /// performs the search for a given number of iterations
 /// TODO add arbitrary result
 /// TODO add arbitrary grammar
-pub fn search<State, Distr>(available_depth: i16, nb_iterations: u64) -> f64
+pub fn search<State, Distr, Res>(available_depth: i16, nb_iterations: u64) -> Res
    where State: Grammar,
-         Distr: Distribution
+         Distr: Distribution,
+         Res: Result<State>
 {
    // memory use for benchmarking purposes
    let system = System::new();
@@ -208,11 +209,12 @@ pub fn search<State, Distr>(available_depth: i16, nb_iterations: u64) -> f64
    let mut rng = Xoshiro256Plus::seed_from_u64(0); //from_entropy();
    let mut distribution_root = Distr::new();
    let mut tree = Tree::Leaf { formula: vec![], stack: vec![State::root_state()] };
+   let mut result = Res::new();
    for _ in 0..nb_iterations
    {
-      let (action, score) = expand(&mut tree, &distribution_root, &mut rng, available_depth);
+      let (action, formula, score) = expand(&mut tree, &distribution_root, &mut rng, available_depth);
       distribution_root.update(score);
-      // TODO update result
+      result.update_opt(formula, score);
       match action
       {
          ReturnType::NewTree(updated_tree) => tree = updated_tree,
@@ -226,8 +228,7 @@ pub fn search<State, Distr>(available_depth: i16, nb_iterations: u64) -> f64
    let memory_after = memory_usage(&system);
    println!("memory consumption: {} Mo", (memory_after - memory_before) / 1_000_000);
 
-   //distribution_root.max_score
-   0.
+   result
 }
 
 /*
