@@ -1,4 +1,6 @@
 pub mod single;
+pub mod pareto;
+pub use single::Single;
 
 /// represents a result of the algorithm
 pub trait Result<State>

@@ -43,6 +43,17 @@ enum ReturnType<Tree>
 //-----------------------------------------------------------------------------
 // FUNCTIONS
 
+impl<State, Distr> Tree<State, Distr>
+   where State: Grammar,
+         Distr: Distribution
+{
+   /// creates a root tree
+   fn root() -> Tree<State, Distr>
+   {
+      Tree::Leaf { formula: vec![], stack: vec![State::root_state()] }
+   }
+}
+
 /// selects the node with the maximum score
 /// breaks ties at random
 /// leafs having an infinite score, they are taken in priority
@@ -208,7 +219,7 @@ pub fn search<State, Distr, Res>(available_depth: i16, nb_iterations: u64) -> Re
 
    let mut rng = Xoshiro256Plus::seed_from_u64(0); //from_entropy();
    let mut distribution_root = Distr::new();
-   let mut tree = Tree::Leaf { formula: vec![], stack: vec![State::root_state()] };
+   let mut tree = Tree::root();
    let mut result = Res::new();
    for _ in 0..nb_iterations
    {

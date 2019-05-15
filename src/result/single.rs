@@ -2,18 +2,18 @@ use super::Result;
 
 /// encapsulate the best result so far
 #[derive(Debug)]
-pub struct SingleResult<State>
+pub struct Single<State>
 {
-   score: f64,
-   formula: Vec<State>
+   pub score: f64,
+   pub formula: Vec<State>
 }
 
-impl<State> Result<State> for SingleResult<State>
+impl<State> Result<State> for Single<State>
 {
    /// creates an empty result
-   fn new() -> SingleResult<State>
+   fn new() -> Single<State>
    {
-      SingleResult { score: -std::f64::INFINITY, formula: vec![] }
+      Single { score: -std::f64::INFINITY, formula: vec![] }
    }
 
    /// if the result is better than the best result so far, we update it

@@ -20,7 +20,9 @@ impl ThompsonMax
       let k = self.nb_score as f64;
       let mean = self.sum_scores / k;
       let sup = f64::ln(k + e) * self.max_score;
-      rng.gen_range(mean, sup)
+      // TODO max > mean but max*log(k) could be < mean !!
+      // rng.gen_range(mean, sup)
+      mean + (sup - mean)*rng.gen::<f64>()
    }
 }
 

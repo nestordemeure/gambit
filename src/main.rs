@@ -7,14 +7,15 @@ mod result;
 
 mod test;
 use explore::search;
-use distribution::thompson_max::ThompsonMax;
 use test::grammar2019::State;
-use result::single::SingleResult;
+use grammar::Grammar;
 
 fn main()
 {
    let depth = 4;
    let nb_iterations = 100_000;
-   let result = search::<State, ThompsonMax, SingleResult<State>>(depth, nb_iterations);
-   println!("Reached {:?} in {} iterations.", result, nb_iterations);
+   let result = search::<State, distribution::ThompsonMax, result::Single<State>>(depth, nb_iterations);
+   let score = result.score;
+   let formula = result.formula;
+   println!("Reached {} with '{}' in {} iterations.", score, State::to_string(&formula), nb_iterations);
 }

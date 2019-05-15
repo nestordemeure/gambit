@@ -1,6 +1,11 @@
 use rand::Rng;
 
 pub mod thompson_max;
+pub use thompson_max::ThompsonMax;
+pub mod ucb_tuned;
+pub use ucb_tuned::UcbTuned;
+pub mod random;
+pub use random::RandomDecision;
 
 pub trait Distribution
 {

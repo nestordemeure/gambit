@@ -113,7 +113,7 @@ impl Grammar for State
    fn evaluate(formula: &[State]) -> Option<f64>
    {
       let value = compute(formula);
-      let score = (2019 - value) as f64;
-      Some(score)
+      let score = (2019 - value).abs() as f64;
+      Some(-score)
    }
 }
