@@ -31,7 +31,7 @@ impl Distribution for ThompsonMax
    /// returns a default, empty, prior
    fn new() -> ThompsonMax
    {
-      ThompsonMax { nb_visit: 0, nb_score: 0, sum_scores: 0., max_score: -std::f64::INFINITY }
+      ThompsonMax { nb_visit: 0, nb_score: 0, sum_scores: 0., max_score: std::f64::NEG_INFINITY }
    }
 
    /// adds a score to the prior
@@ -58,7 +58,7 @@ impl Distribution for ThompsonMax
       }
       match rng.gen_ratio((self.nb_score + 1) as u32, (self.nb_visit + 2) as u32) // laplacian smoothing
       {
-         false => -std::f64::INFINITY,
+         false => std::f64::NEG_INFINITY,
          true if self.nb_score == 0 => default_distribution.sample(&mut rng),
          true => self.sample(&mut rng)
       }

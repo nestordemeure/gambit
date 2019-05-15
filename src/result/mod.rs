@@ -1,12 +1,16 @@
+use crate::grammar::Grammar;
 pub mod single;
 pub mod pareto;
 pub use single::Single;
 
 /// represents a result of the algorithm
-pub trait Result<State>
+pub trait Result<State> where State:Grammar
 {
    /// creates a new instance of the type
    fn new() -> Self;
+
+   /// returns the best (formula,score) so far
+   fn best(&self) -> (Vec<State>, f64);
 
    /// updates the result with a f64 score
    fn update(&mut self, formula: Vec<State>, score: f64);
@@ -21,5 +25,5 @@ pub trait Result<State>
    }
 }
 
-// implements display of intermediate results
+// implements display of intermediate results ?
 // implements pareto
