@@ -1,5 +1,11 @@
+use std::ops::{Deref, DerefMut};
+use std::fmt;
 
-/// represents a grammar and all its operations
+//-------------------------------------------------------------------------------------------------
+// GRAMMAR
+
+/// represents a grammar and all the associated operations
+/// TODO implement macro that derive grammar from simple representation
 pub trait Grammar
    where Self: Copy + Clone
 {
@@ -11,12 +17,61 @@ pub trait Grammar
    fn expand(self) -> Vec<Vec<Self>>;
 
    /// turn a formula into a displayable string
-   fn to_string(formula: &[Self]) -> String;
+   fn to_string(formula: &Formula<Self>) -> String;
 
    /// evaluates a formula
-   fn evaluate(formula: &[Self]) -> Option<f64>;
+   fn evaluate(formula: &Formula<Self>) -> Option<f64>;
 }
 
-// TODO is there an existin to_string trait ?
-// TODO should we encapsulate a formula inside a struct
-// TODO implement macro that derive grammar from simple representation
+//-------------------------------------------------------------------------------------------------
+// FORMULA
+
+/// represents a serie of states
+#[derive(Clone)]
+pub struct Formula<State:Grammar>
+(
+   Vec<State>
+);
+
+/// macro to acess methods of inner vector
+impl<State:Grammar> Deref for Formula<State>
+{
+   type Target = Vec<State>;
+   fn deref(&self) -> &Self::Target 
+   {
+      &self.0
+   }
+}
+
+/// macro to acess methods of inner vector
+impl<State:Grammar> DerefMut for Formula<State>
+{
+   fn deref_mut(&mut self) -> &mut Self::Target 
+   {
+      &mut self.0
+   }
+}
+
+/// macro to display a formula
+impl<State:Grammar> fmt::Display for Formula<State> 
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result 
+    {
+        write!(f, "{}", State::to_string(self))
+    }
+}
+
+impl<State:Grammar> Formula<State>
+{
+   /// creates a new, empty, formula
+   pub fn empty() -> Formula<State>
+   {
+      Formula(vec![])
+   }
+   
+   /// evaluates a formula
+   pub fn evaluate(&self) -> Option<f64>
+   {
+      State::evaluate(self)
+   }
+}

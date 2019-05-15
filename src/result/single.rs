@@ -1,12 +1,21 @@
 use super::Result;
-use crate::grammar::Grammar;
+use crate::grammar::{Grammar, Formula};
+use std::fmt;
 
 /// encapsulate the best result so far
-#[derive(Debug)]
-pub struct Single<State>
+pub struct Single<State:Grammar>
 {
    pub score: f64,
-   pub formula: Vec<State>
+   pub formula: Formula<State>
+}
+
+/// macro to display a result
+impl<State:Grammar> fmt::Display for Single<State> 
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result 
+    {
+        write!(f, "{{score:{} formula:'{}'}}", self.score, self.formula)
+    }
 }
 
 impl<State:Grammar> Result<State> for Single<State>
@@ -14,17 +23,17 @@ impl<State:Grammar> Result<State> for Single<State>
    /// creates an empty result
    fn new() -> Single<State>
    {
-      Single { score: std::f64::NEG_INFINITY, formula: vec![] }
+      Single { score: std::f64::NEG_INFINITY, formula: Formula::<State>::empty() }
    }
 
    /// returns the best formula, score so far
-   fn best(&self) -> (Vec<State>, f64)
+   fn best(&self) -> (Formula<State>, f64)
    {
-      (self.formula.to_vec(), self.score)
+      (self.formula.clone(), self.score)
    }
 
    /// if the result is better than the best result so far, we update it
-   fn update(&mut self, formula: Vec<State>, score: f64)
+   fn update(&mut self, formula: Formula<State>, score: f64)
    {
       if score > self.score
       {

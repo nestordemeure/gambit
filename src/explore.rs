@@ -11,7 +11,7 @@ use std::f64;
 use systemstat::{Platform, System}; // to measure memory use
 
 use crate::distribution::Distribution;
-use crate::grammar::Grammar;
+use crate::grammar::{Grammar, Formula};
 use crate::result::Result;
 
 //-----------------------------------------------------------------------------
@@ -24,7 +24,7 @@ enum Tree<State, Distr>
 {
    Leaf
    {
-      formula: Vec<State>, stack: Vec<State>
+      formula: Formula<State>, stack: Vec<State>
    },
    Node
    {
@@ -50,7 +50,7 @@ impl<State, Distr> Tree<State, Distr>
    /// creates a root tree
    fn root() -> Tree<State, Distr>
    {
-      Tree::Leaf { formula: vec![], stack: vec![State::root_state()] }
+      Tree::Leaf { formula: Formula::<State>::empty(), stack: vec![State::root_state()] }
    }
 }
 
@@ -82,9 +82,9 @@ fn best_child<Distr, RNG>(distributions: &[Distr],
 }
 
 /// if the result does not modify the tree, we inject the given tree
-fn new_tree<State, Distr>(result: (ReturnType<Tree<State, Distr>>, Vec<State>, Option<f64>),
+fn new_tree<State, Distr>(result: (ReturnType<Tree<State, Distr>>, Formula<State>, Option<f64>),
                           tree: Tree<State, Distr>)
-                          -> (ReturnType<Tree<State, Distr>>, Vec<State>, Option<f64>)
+                          -> (ReturnType<Tree<State, Distr>>, Formula<State>, Option<f64>)
    where State: Grammar,
          Distr: Distribution
 {
@@ -104,7 +104,7 @@ fn expand<State, Distr, RNG>(mut tree: &mut Tree<State, Distr>,
                              distribution_root: &Distr,
                              rng: &mut RNG,
                              available_depth: i16)
-                             -> (ReturnType<Tree<State, Distr>>, Vec<State>, Option<f64>)
+                             -> (ReturnType<Tree<State, Distr>>, Formula<State>, Option<f64>)
    where State: Grammar,
          Distr: Distribution,
          RNG: Rng
@@ -185,7 +185,7 @@ fn expand<State, Distr, RNG>(mut tree: &mut Tree<State, Distr>,
       Tree::Leaf { formula, .. } =>
       {
          // terminal leaf, we evaluate the formula and backpropagate
-         let score = State::evaluate(&formula);
+         let score = formula.evaluate();
          (ReturnType::DeleteChild, formula.clone(), score)
       }
    }

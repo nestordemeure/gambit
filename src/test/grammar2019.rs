@@ -1,4 +1,4 @@
-use crate::grammar::Grammar;
+use crate::grammar::{Grammar, Formula};
 
 //-------------------------------------------------------------------------------------------------
 // TYPE
@@ -75,7 +75,7 @@ impl Grammar for State
    }
 
    /// turn a formula into a displayable string
-   fn to_string(formula: &[State]) -> String
+   fn to_string(formula: &Formula<State>) -> String
    {
       /// turn the first element of the formula into a string and returns its value followed with any leftover
       fn to_string_rec(formula: &[State]) -> (String, &[State])
@@ -105,12 +105,12 @@ impl Grammar for State
       match to_string_rec(formula)
       {
          (result, []) => result,
-         (_, leftover) => panic!("There are some leftover states : {:?} => {:?}", formula, leftover)
+         (_, leftover) => panic!("There are some leftover states : '{}' => {:?}", formula, leftover)
       }
    }
 
    /// evaluates a formula
-   fn evaluate(formula: &[State]) -> Option<f64>
+   fn evaluate(formula: &Formula<State>) -> Option<f64>
    {
       let value = compute(formula);
       let score = (2019 - value).abs() as f64;
