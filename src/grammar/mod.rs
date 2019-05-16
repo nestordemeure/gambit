@@ -21,6 +21,12 @@ pub trait Grammar
 
    /// evaluates a formula
    fn evaluate(formula: &Formula<Self>) -> Option<f64>;
+   
+   /// computes teh cost of the formula (useful to build a pareto front)
+   fn cost(formula: &Formula<Self>) -> usize 
+   {
+      formula.len()
+   }
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -73,5 +79,11 @@ impl<State:Grammar> Formula<State>
    pub fn evaluate(&self) -> Option<f64>
    {
       State::evaluate(self)
+   }
+
+   /// computes the cost of a formula (useful for pareto front)
+   pub fn cost(&self) -> usize
+   {
+      State::cost(self)
    }
 }

@@ -14,7 +14,7 @@ impl<State:Grammar> fmt::Display for Single<State>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result 
     {
-        write!(f, "{{score:{} formula:'{}'}}", self.score, self.formula)
+        write!(f, "{{score:{}\tformula:'{}'}}", self.score, self.formula)
     }
 }
 

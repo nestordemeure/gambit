@@ -26,10 +26,15 @@ pub struct ParetoFront<State:Grammar>
 /// macro to display a result
 impl<State:Grammar> fmt::Display for ParetoFront<State> 
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result 
-    {
-        write!(f, "{{score:{} formula:'{}'}}", self.score, self.formula)
-    }
+   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result 
+   {
+      writeln!(f, "{{").unwrap();
+      for element in self.front.iter()
+      {
+         writeln!(f, "\tscore:{}\tcost:{}\tformula:'{}'", element.score, element.cost, element.formula).unwrap();
+      }
+      writeln!(f, "}}")
+   }
 }
 
 impl<State:Grammar> Result<State> for ParetoFront<State>
@@ -53,7 +58,7 @@ impl<State:Grammar> Result<State> for ParetoFront<State>
    /// if the result is non dominated by the front so far, we update it
    fn update(&mut self, formula: Formula<State>, score: f64)
    {
-      let cost = formula.len(); // TODO we need user-defined cost
+      let cost = formula.cost();
       let new_element = ParetoElement { formula, score, cost };
       
       /// inserts a new element in the pareto front

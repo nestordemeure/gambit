@@ -4,10 +4,11 @@ use crate::grammar::{Grammar, Formula};
 // TYPE
 
 /// represents a state
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum State
 {
    Expr,
+   Factor,
    One,
    Add,
    Mul
@@ -67,9 +68,11 @@ impl Grammar for State
    {
       match self
       {
-         State::Expr => vec![vec![State::One], vec![State::Add, State::Expr, State::Expr], vec![State::Mul,
-                                                                                                State::Expr,
-                                                                                                State::Expr]],
+         State::Expr => vec![vec![State::One], 
+                        vec![State::Add, State::Expr, State::Expr], 
+                        vec![State::Mul, State::Factor, State::Factor]],
+         State::Factor => vec![vec![State::Add, State::Expr, State::Expr], 
+                               vec![State::Mul, State::Factor, State::Factor]],
          _ => vec![]
       }
    }
@@ -115,5 +118,11 @@ impl Grammar for State
       let value = compute(formula);
       let score = (2019 - value).abs() as f64;
       Some(-score)
+   }
+
+   /// computes the cost of a formula to build a pareto front
+   fn cost(formula: &Formula<State>) -> usize
+   {
+      formula.iter().filter(|&&s| s == State::One).count()
    }
 }

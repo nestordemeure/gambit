@@ -2,6 +2,7 @@ use crate::grammar::{Grammar, Formula};
 pub mod single;
 pub mod pareto;
 pub use single::Single;
+pub use pareto::ParetoFront;
 
 /// represents a result of the algorithm
 pub trait Result<State> where State:Grammar
