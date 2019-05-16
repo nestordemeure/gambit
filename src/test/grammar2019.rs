@@ -56,6 +56,8 @@ fn compute(formula: &[State]) -> i64
 /// an implementation of the, very simple, 2019 grammar
 impl Grammar for State
 {
+   type ScoreType = Option<f64>;
+   
    /// represents the root of a formula
    fn root_state() -> State
    {

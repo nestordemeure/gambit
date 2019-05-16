@@ -9,6 +9,8 @@ use std::fmt;
 pub trait Grammar
    where Self: Copy + Clone
 {
+   type ScoreType : Wrap;
+   
    /// represents the root of a formula
    fn root_state() -> Self;
 
@@ -20,12 +22,33 @@ pub trait Grammar
    fn to_string(formula: &Formula<Self>) -> String;
 
    /// evaluates a formula
-   fn evaluate(formula: &Formula<Self>) -> Option<f64>;
+   fn evaluate(formula: &Formula<Self>) -> Self::ScoreType;
    
    /// computes teh cost of the formula (useful to build a pareto front)
    fn cost(formula: &Formula<Self>) -> usize 
    {
       formula.len()
+   }
+}
+
+pub trait Wrap where Self : Copy
+{
+   fn wrap(self) -> Option<f64>;
+}
+
+impl Wrap for f64 
+{
+   fn wrap(self) -> Option<f64>
+   {
+      Some(self)
+   }
+}
+
+impl Wrap for Option<f64> 
+{
+   fn wrap(self) -> Option<f64>
+   {
+      self
    }
 }
 
@@ -76,7 +99,7 @@ impl<State:Grammar> Formula<State>
    }
    
    /// evaluates a formula
-   pub fn evaluate(&self) -> Option<f64>
+   pub fn evaluate(&self) -> State::ScoreType
    {
       State::evaluate(self)
    }

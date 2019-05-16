@@ -28,6 +28,8 @@ impl ThompsonMax
 
 impl Distribution for ThompsonMax
 {
+   type ScoreType = Option<f64>;
+   
    /// returns a default, empty, prior
    fn new() -> ThompsonMax
    {
@@ -35,7 +37,7 @@ impl Distribution for ThompsonMax
    }
 
    /// adds a score to the prior
-   fn update(&mut self, score_opt: Option<f64>)
+   fn update(&mut self, score_opt: Self::ScoreType)
    {
       self.nb_visit += 1;
       if let Some(score) = score_opt

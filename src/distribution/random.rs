@@ -3,19 +3,21 @@ use super::Distribution;
 use rand::Rng;
 
 /// does not store informations
-pub struct RandomDecision {}
+pub struct RandomSearch {}
 
-impl Distribution for RandomDecision
+impl Distribution for RandomSearch
 {
-   fn new() -> RandomDecision
+   type ScoreType = Option<f64>;
+   
+   fn new() -> RandomSearch
    {
-      RandomDecision {}
+      RandomSearch {}
    }
 
-   fn update(&mut self, _score_opt: Option<f64>) {}
+   fn update(&mut self, _score: Self::ScoreType) {}
 
    /// returns a random score
-   fn score<RNG: Rng>(&self, _default_distribution: &RandomDecision, rng: &mut RNG) -> f64
+   fn score<RNG: Rng>(&self, _default_distribution: &RandomSearch, rng: &mut RNG) -> f64
    {
       rng.gen()
    }

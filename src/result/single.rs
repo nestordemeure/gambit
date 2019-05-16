@@ -1,5 +1,5 @@
-use super::Result;
-use crate::grammar::{Grammar, Formula};
+use super::{Result};
+use crate::grammar::{Grammar, Formula, Wrap};
 use std::fmt;
 
 /// encapsulate the best result so far
@@ -31,14 +31,18 @@ impl<State:Grammar> Result<State> for Single<State>
    {
       (self.formula.clone(), self.score)
    }
-
+   
    /// if the result is better than the best result so far, we update it
-   fn update(&mut self, formula: Formula<State>, score: f64)
+   fn update(&mut self, formula: Formula<State>, score: State::ScoreType)
    {
-      if score > self.score
+      match score.wrap()
       {
-         self.score = score;
-         self.formula = formula;
+         Some(score) if score > self.score =>
+         {
+            self.score = score;
+            self.formula = formula;
+         }
+         _ => ()
       }
    }
 }

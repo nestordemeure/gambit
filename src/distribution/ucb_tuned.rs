@@ -45,6 +45,8 @@ impl UcbTuned
 
 impl Distribution for UcbTuned
 {
+   type ScoreType = Option<f64>;
+   
    /// returns a default, empty, distribution
    fn new() -> UcbTuned
    {
@@ -52,7 +54,7 @@ impl Distribution for UcbTuned
    }
 
    /// adds a score to the distribution
-   fn update(&mut self, score_opt: Option<f64>)
+   fn update(&mut self, score_opt: Self::ScoreType)
    {
       self.nb_visit += 1;
       if let Some(score) = score_opt

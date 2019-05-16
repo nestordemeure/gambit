@@ -6,13 +6,12 @@ use rand::SeedableRng;
 use rand_xoshiro::Xoshiro256Plus;
 // float manipulation
 use float_ord::FloatOrd;
-use std::f64;
 // memory measure
 use systemstat::{Platform, System}; // to measure memory use
 
 use crate::distribution::Distribution;
 use crate::grammar::{Grammar, Formula};
-use crate::result::Result;
+use crate::result::{Result};
 
 //-----------------------------------------------------------------------------
 // TREE
@@ -82,9 +81,9 @@ fn best_child<Distr, RNG>(distributions: &[Distr],
 }
 
 /// if the result does not modify the tree, we inject the given tree
-fn new_tree<State, Distr>(result: (ReturnType<Tree<State, Distr>>, Formula<State>, Option<f64>),
+fn new_tree<State, Distr>(result: (ReturnType<Tree<State, Distr>>, Formula<State>, State::ScoreType),
                           tree: Tree<State, Distr>)
-                          -> (ReturnType<Tree<State, Distr>>, Formula<State>, Option<f64>)
+                          -> (ReturnType<Tree<State, Distr>>, Formula<State>, State::ScoreType)
    where State: Grammar,
          Distr: Distribution
 {
@@ -104,9 +103,9 @@ fn expand<State, Distr, RNG>(mut tree: &mut Tree<State, Distr>,
                              distribution_root: &Distr,
                              rng: &mut RNG,
                              available_depth: i16)
-                             -> (ReturnType<Tree<State, Distr>>, Formula<State>, Option<f64>)
+                             -> (ReturnType<Tree<State, Distr>>, Formula<State>, State::ScoreType)
    where State: Grammar,
-         Distr: Distribution,
+         Distr: Distribution<ScoreType = State::ScoreType>,
          RNG: Rng
 {
    match tree
@@ -210,7 +209,7 @@ fn memory_usage<P>(system: &P) -> usize
 /// TODO add arbitrary grammar
 pub fn search<State, Distr, Res>(available_depth: i16, nb_iterations: u64) -> Res
    where State: Grammar,
-         Distr: Distribution,
+         Distr: Distribution<ScoreType = State::ScoreType>,
          Res: Result<State>
 {
    // memory use for benchmarking purposes
@@ -219,13 +218,13 @@ pub fn search<State, Distr, Res>(available_depth: i16, nb_iterations: u64) -> Re
 
    let mut rng = Xoshiro256Plus::seed_from_u64(0); //from_entropy();
    let mut distribution_root = Distr::new();
-   let mut tree = Tree::root();
+   let mut tree = Tree::<State, Distr>::root();
    let mut result = Res::new();
    for _ in 0..nb_iterations
    {
       let (action, formula, score) = expand(&mut tree, &distribution_root, &mut rng, available_depth);
       distribution_root.update(score);
-      result.update_opt(formula, score);
+      result.update(formula, score);
       match action
       {
          ReturnType::NewTree(updated_tree) => tree = updated_tree,

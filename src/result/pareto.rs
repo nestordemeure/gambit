@@ -1,4 +1,4 @@
-use crate::grammar::{Grammar, Formula};
+use crate::grammar::{Grammar, Formula, Wrap};
 use super::Result;
 use linked_list::{LinkedList, Cursor};
 use std::fmt;
@@ -18,6 +18,33 @@ struct ParetoElement<State:Grammar>
 pub struct ParetoFront<State:Grammar>
 {
    front: LinkedList<ParetoElement<State>>
+}
+
+/// inserts a new element in the pareto front
+fn insert<State:Grammar>(mut front_cursor: Cursor<ParetoElement<State>>, new_element: ParetoElement<State>) 
+{
+   match front_cursor.peek_next()
+   {
+      None => front_cursor.insert(new_element),
+      Some(ref element) if element.score <= new_element.score && element.cost >= new_element.cost => 
+      {
+         // we pareto dominate this result
+         front_cursor.remove();
+         insert(front_cursor, new_element)
+      },
+      Some(ref element) if element.score < new_element.score => 
+      {
+         // we are better but more expensive
+         front_cursor.insert(new_element)
+      },
+      Some(ref element) if element.cost > new_element.cost =>
+      {
+         // we are worst but cheaper
+         front_cursor.next();
+         insert(front_cursor, new_element)
+      },
+      _ => () // we are pareto dominated
+   }
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -56,38 +83,17 @@ impl<State:Grammar> Result<State> for ParetoFront<State>
    }
 
    /// if the result is non dominated by the front so far, we update it
-   fn update(&mut self, formula: Formula<State>, score: f64)
+   fn update(&mut self, formula: Formula<State>, score: State::ScoreType)
    {
-      let cost = formula.cost();
-      let new_element = ParetoElement { formula, score, cost };
-      
-      /// inserts a new element in the pareto front
-      fn insert<State:Grammar>(mut front_cursor: Cursor<ParetoElement<State>>, new_element: ParetoElement<State>) 
+      match score.wrap()
       {
-         match front_cursor.peek_next()
+         Some(score) =>
          {
-            None => front_cursor.insert(new_element),
-            Some(ref element) if element.score <= new_element.score && element.cost >= new_element.cost => 
-            {
-               // we pareto dominate this result
-               front_cursor.remove();
-               insert(front_cursor, new_element)
-            },
-            Some(ref element) if element.score < new_element.score => 
-            {
-               // we are better but more expensive
-               front_cursor.insert(new_element)
-            },
-            Some(ref element) if element.cost > new_element.cost =>
-            {
-               // we are worst but cheaper
-               front_cursor.next();
-               insert(front_cursor, new_element)
-            },
-            _ => () // we are pareto dominated
+            let cost = formula.cost();
+            let new_element = ParetoElement { formula, score, cost };
+            insert(self.front.cursor(), new_element);
          }
+         _ => ()
       }
-      
-      insert(self.front.cursor(), new_element);
    }
 }
