@@ -21,11 +21,16 @@ pub struct ParetoFront<State:Grammar>
 }
 
 /// inserts a new element in the pareto front
-fn insert<State:Grammar>(mut front_cursor: Cursor<ParetoElement<State>>, new_element: ParetoElement<State>) 
+/// returns true if it is better than the best element so far
+fn insert<State:Grammar>(mut front_cursor: Cursor<ParetoElement<State>>, new_element: ParetoElement<State>) -> bool
 {
    match front_cursor.peek_next()
    {
-      None => front_cursor.insert(new_element),
+      None => 
+      {
+         front_cursor.insert(new_element);
+         true
+      },
       Some(ref element) if element.score <= new_element.score && element.cost >= new_element.cost => 
       {
          // we pareto dominate this result
@@ -35,15 +40,17 @@ fn insert<State:Grammar>(mut front_cursor: Cursor<ParetoElement<State>>, new_ele
       Some(ref element) if element.score < new_element.score => 
       {
          // we are better but more expensive
-         front_cursor.insert(new_element)
+         front_cursor.insert(new_element);
+         true
       },
       Some(ref element) if element.cost > new_element.cost =>
       {
          // we are worst but cheaper
          front_cursor.next();
-         insert(front_cursor, new_element)
+         insert(front_cursor, new_element);
+         false
       },
-      _ => () // we are pareto dominated
+      _ => false // we are pareto dominated
    }
 }
 
@@ -72,7 +79,7 @@ impl<State:Grammar> Result<State> for ParetoFront<State>
       ParetoFront { front: LinkedList::new() }
    }
 
-   /// returns the best formula, score so far
+   /// returns the best (formula, score) so far
    fn best(&self) -> (Formula<State>, f64)
    {
       match self.front.front()
@@ -83,7 +90,7 @@ impl<State:Grammar> Result<State> for ParetoFront<State>
    }
 
    /// if the result is non dominated by the front so far, we update it
-   fn update(&mut self, formula: Formula<State>, score: State::ScoreType)
+   fn update(&mut self, formula: Formula<State>, score: State::ScoreType) -> bool
    {
       match score.wrap()
       {
@@ -91,9 +98,9 @@ impl<State:Grammar> Result<State> for ParetoFront<State>
          {
             let cost = formula.cost();
             let new_element = ParetoElement { formula, score, cost };
-            insert(self.front.cursor(), new_element);
+            insert(self.front.cursor(), new_element)
          }
-         _ => ()
+         _ => false
       }
    }
 }

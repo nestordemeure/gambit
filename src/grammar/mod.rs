@@ -31,7 +31,7 @@ pub trait Grammar
    }
 }
 
-pub trait Wrap where Self : Copy
+pub trait Wrap where Self : Copy + std::fmt::Debug
 {
    fn wrap(self) -> Option<f64>;
 }

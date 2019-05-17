@@ -33,7 +33,7 @@ impl<State:Grammar> Result<State> for Single<State>
    }
    
    /// if the result is better than the best result so far, we update it
-   fn update(&mut self, formula: Formula<State>, score: State::ScoreType)
+   fn update(&mut self, formula: Formula<State>, score: State::ScoreType) -> bool
    {
       match score.wrap()
       {
@@ -41,8 +41,9 @@ impl<State:Grammar> Result<State> for Single<State>
          {
             self.score = score;
             self.formula = formula;
+            true
          }
-         _ => ()
+         _ => false
       }
    }
 }

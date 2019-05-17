@@ -53,9 +53,9 @@ impl<State, Distr> Tree<State, Distr>
    }
 }
 
-/// selects the node with the maximum score
-/// breaks ties at random
+/// selects the node with the maximum score (breaks ties at random)
 /// leafs having an infinite score, they are taken in priority
+/// NOTE: this function could be rewritten in a more efficient way if needed
 fn best_child<Distr, RNG>(distributions: &[Distr],
                           default_distr: &Distr,
                           mut rng: &mut RNG,
@@ -66,6 +66,7 @@ fn best_child<Distr, RNG>(distributions: &[Distr],
 {
    if available_depth <= 0
    {
+      // we return the first child which, by convention, should be on the shortest path to a valid formula
       0
    }
    else
@@ -73,9 +74,9 @@ fn best_child<Distr, RNG>(distributions: &[Distr],
       let (index, _) = distributions.iter()
                                     .enumerate()
                                     .max_by_key(|&(_, distr)| {
-                                       (FloatOrd(distr.score(default_distr, &mut rng)), rng.gen::<usize>())
+                                       (FloatOrd(distr.score(default_distr, &mut rng)), rng.gen::<usize>()) // ties are broken randomly
                                     })
-                                    .expect("Tried to find the best child in an empty array.");
+                                    .expect("best_child: tried to find the best child in an empty array.");
       index
    }
 }
@@ -205,8 +206,6 @@ fn memory_usage<P>(system: &P) -> usize
 }
 
 /// performs the search for a given number of iterations
-/// TODO add arbitrary result
-/// TODO add arbitrary grammar
 pub fn search<State, Distr, Res>(available_depth: i16, nb_iterations: u64) -> Res
    where State: Grammar,
          Distr: Distribution<ScoreType = State::ScoreType>,
@@ -214,7 +213,7 @@ pub fn search<State, Distr, Res>(available_depth: i16, nb_iterations: u64) -> Re
 {
    let system = System::new();
    let memory_without = memory_usage(&system);
-   
+
    let mut rng = Xoshiro256Plus::seed_from_u64(0); //from_entropy();
    let mut distribution_root = Distr::new();
    let mut tree = Tree::<State, Distr>::root();
@@ -239,11 +238,8 @@ pub fn search<State, Distr, Res>(available_depth: i16, nb_iterations: u64) -> Re
 }
 
 /*
-   100_000 iterations what is the memory usage ? 420Mo
-   (measures with seed=0 to help with reproducibility)
-*/
+   TODO implement memory limited explore
 
-/*
    we can measure memory use at regular intervals to stop consumming it when we are a few hundreds of Mo before the end of the RAM
    it does not matter wether we are the one using the memory we just want to avoid crashing the computeur
 
