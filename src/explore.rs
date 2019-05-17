@@ -212,10 +212,9 @@ pub fn search<State, Distr, Res>(available_depth: i16, nb_iterations: u64) -> Re
          Distr: Distribution<ScoreType = State::ScoreType>,
          Res: Result<State>
 {
-   // memory use for benchmarking purposes
    let system = System::new();
-   let memory_before = memory_usage(&system);
-
+   let memory_without = memory_usage(&system);
+   
    let mut rng = Xoshiro256Plus::seed_from_u64(0); //from_entropy();
    let mut distribution_root = Distr::new();
    let mut tree = Tree::<State, Distr>::root();
@@ -233,10 +232,8 @@ pub fn search<State, Distr, Res>(available_depth: i16, nb_iterations: u64) -> Re
       }
    }
 
-   // display the memory used by the tree
-   // (under the assumption that there is no other memory consummer on the computeur)
-   let memory_after = memory_usage(&system);
-   println!("memory consumption: {} Mo", (memory_after - memory_before) / 1_000_000);
+   let memory_with = memory_usage(&system);
+   println!("memory consumption: {} Mo", (memory_with - memory_without) / 1_000_000);
 
    result
 }

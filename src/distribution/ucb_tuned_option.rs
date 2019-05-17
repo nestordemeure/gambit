@@ -3,14 +3,15 @@ use super::Distribution;
 use rand::Rng;
 
 /// stores information gotten during previous runs
-pub struct UcbTuned
+pub struct UcbTunedOption
 {
+   nb_visit: u64,
    nb_score: u64,
    sum_scores: f64,
    sum_squared_score: f64
 }
 
-impl UcbTuned
+impl UcbTunedOption
 {
    /// returns the mean score so far
    fn mean(&self) -> f64 
@@ -42,36 +43,47 @@ impl UcbTuned
    }
 }
 
-impl Distribution for UcbTuned
+impl Distribution for UcbTunedOption
 {
-   type ScoreType = f64;
+   type ScoreType = Option<f64>;
    
    /// returns a default, empty, distribution
-   fn new() -> UcbTuned
+   fn new() -> UcbTunedOption
    {
-      UcbTuned { nb_score: 0, sum_scores: 0., sum_squared_score: 0. }
+      UcbTunedOption { nb_visit: 0, nb_score: 0, sum_scores: 0., sum_squared_score: 0. }
    }
 
    /// adds a score to the distribution
-   fn update(&mut self, score: Self::ScoreType)
+   fn update(&mut self, score_opt: Self::ScoreType)
    {
-      self.nb_score += 1;
-      self.sum_scores += score;
-      self.sum_squared_score += score*score;
+      self.nb_visit += 1;
+      if let Some(score) = score_opt
+      {
+         self.nb_score += 1;
+         self.sum_scores += score;
+         self.sum_squared_score += score*score;
+      }
    }
 
    /// gives a score to the node, we will take the node with the maximum score
-   fn score<RNG: Rng>(&self, default_distribution: &UcbTuned, mut _rng: &mut RNG) -> f64
+   fn score<RNG: Rng>(&self, default_distribution: &UcbTunedOption, mut _rng: &mut RNG) -> f64
    {
+      if self.nb_visit == 0
+      {
+         return std::f64::INFINITY;
+      }
+      
+      let fathers_nb_visit = default_distribution.nb_visit as f64;
+      let child_nb_visit = self.nb_visit as f64;
+      let c = self.var() + (2. * fathers_nb_visit.ln() / child_nb_visit).sqrt();
       if self.nb_score == 0
       {
-         std::f64::INFINITY
+         // never produced a valid output, minimum score
+         (c * fathers_nb_visit.ln() / child_nb_visit).sqrt()
       }
       else
       {
-         let fathers_nb_visit = default_distribution.nb_score as f64;
-         let child_nb_visit = self.nb_score as f64;
-         let c = self.var() + (2. * fathers_nb_visit.ln() / child_nb_visit).sqrt();
+         // classical UCB score
          self.mean() + (c * fathers_nb_visit.ln() / child_nb_visit).sqrt()
       }
    }

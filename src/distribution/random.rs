@@ -7,7 +7,7 @@ pub struct RandomSearch {}
 
 impl Distribution for RandomSearch
 {
-   type ScoreType = Option<f64>;
+   type ScoreType = f64;
    
    fn new() -> RandomSearch
    {

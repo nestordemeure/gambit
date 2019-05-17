@@ -5,7 +5,6 @@ use rand::Rng;
 /// stores information gotten during previous runs
 pub struct ThompsonMax
 {
-   nb_visit: u64,
    nb_score: u64,
    sum_scores: f64,
    max_score: f64
@@ -28,41 +27,35 @@ impl ThompsonMax
 
 impl Distribution for ThompsonMax
 {
-   type ScoreType = Option<f64>;
+   type ScoreType = f64;
    
    /// returns a default, empty, prior
    fn new() -> ThompsonMax
    {
-      ThompsonMax { nb_visit: 0, nb_score: 0, sum_scores: 0., max_score: std::f64::NEG_INFINITY }
+      ThompsonMax { nb_score: 0, sum_scores: 0., max_score: std::f64::NEG_INFINITY }
    }
 
    /// adds a score to the prior
-   fn update(&mut self, score_opt: Self::ScoreType)
+   fn update(&mut self, score: Self::ScoreType)
    {
-      self.nb_visit += 1;
-      if let Some(score) = score_opt
+      self.nb_score += 1;
+      self.sum_scores += score;
+      if score > self.max_score
       {
-         self.nb_score += 1;
-         self.sum_scores += score;
-         if score > self.max_score
-         {
-            self.max_score = score;
-         }
+         self.max_score = score;
       }
    }
 
    /// gives a score to the node, we will take the node with the maximum score
-   fn score<RNG: Rng>(&self, default_distribution: &ThompsonMax, mut rng: &mut RNG) -> f64
+   fn score<RNG: Rng>(&self, _default_distribution: &ThompsonMax, mut rng: &mut RNG) -> f64
    {
-      if self.nb_visit == 0
+      if self.nb_score == 0
       {
-         return std::f64::INFINITY;
+         std::f64::INFINITY
       }
-      match rng.gen_ratio((self.nb_score + 1) as u32, (self.nb_visit + 2) as u32) // laplacian smoothing
+      else
       {
-         false => std::f64::NEG_INFINITY,
-         true if self.nb_score == 0 => default_distribution.sample(&mut rng),
-         true => self.sample(&mut rng)
+         self.sample(&mut rng)
       }
    }
 }
