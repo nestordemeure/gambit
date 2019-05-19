@@ -8,7 +8,9 @@ use rand_xoshiro::Xoshiro256Plus;
 use float_ord::FloatOrd;
 
 use crate::distribution::Distribution;
+use crate::distribution;
 use crate::grammar::{Grammar, Formula};
+use crate::result;
 use crate::result::{Result};
 use crate::memory::{MemoryTracker, memory_summary};
 
@@ -223,20 +225,16 @@ pub fn search<State, Distr, Res>(available_depth: i16, nb_iterations: u64) -> Re
    result
 }
 
-/*
-   TODO implement memory limited explore
+/// search function adapted for faillible functions (that retun a option<score>)
+pub fn search_optional<State, Distr, Res>(available_depth: i16, nb_iterations: u64) -> Res
+   where State: Grammar<ScoreType = Option<Res::ScoreType>>,
+         Distr: Distribution<ScoreType = Res::ScoreType>,
+         Res: Result<State>,
+         Res::ScoreType: Copy + std::fmt::Debug
+{
+   let result =
+      search::<State, distribution::Optional<Distr>, result::Optional<Res>>(available_depth, nb_iterations);
+   result.get_result()
+}
 
-   we can measure memory use at regular intervals to stop consumming it when we are a few hundreds of Mo before the end of the RAM
-   it does not matter wether we are the one using the memory we just want to avoid crashing the computeur
-
-   let sys = System::new();
-   match sys.memory()
-   {
-      Ok(mem) => println!("\nMemory: {} used / {} ({} bytes)",
-                          mem.total - mem.free,
-                          mem.total,
-                          (mem.total - mem.free).as_usize()),
-      Err(x) => println!("\nMemory: error: {}", x)
-   }
-   // 1Go = 1000000000 bytes
-*/
+// TODO implement memory limited explore

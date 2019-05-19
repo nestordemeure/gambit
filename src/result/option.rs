@@ -5,6 +5,15 @@ use std::fmt::Display;
 /// converts a result from an option<f64> to an f64
 pub struct Optional<ResultType>(ResultType);
 
+impl<ResultType> Optional<ResultType>
+{
+   /// extracts the underlying result type
+   pub fn get_result(self) -> ResultType
+   {
+      self.0
+   }
+}
+
 /// implements the display trait needed by the result trait
 impl<ResultType: Display> Display for Optional<ResultType>
 {
