@@ -28,6 +28,16 @@ impl MemoryTracker
       MemoryTracker { system, memory_at_creation }
    }
 
+   /// indicates the maount of free memory in Mo
+   pub fn free_memory(&self) -> usize
+   {
+      match self.system.memory()
+      {
+         Ok(mem) => mem.free.as_usize() / 1_000_000,
+         Err(x) => panic!("Unable to measure memory: {}", x)
+      }
+   }
+
    /// returns the current memory usage in bytes
    pub fn memory_usage(&self) -> usize
    {
@@ -38,7 +48,7 @@ impl MemoryTracker
    /// displays the current memory use, in Mo
    pub fn print_memory_usage(&self)
    {
-      println!("memory consumption: {} Mo", self.memory_usage() / 1_000_000);
+      println!("memory consumption: {} Mo, free memory: {} Mo", self.memory_usage() / 1_000_000, self.free_memory());
    }
 }
 

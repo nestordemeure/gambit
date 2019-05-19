@@ -56,7 +56,7 @@ fn compute(formula: &[State]) -> i64
 /// an implementation of the, very simple, 2019 grammar
 impl Grammar for State
 {
-   type ScoreType = Option<f64>;
+   type ScoreType = f64; //Option<f64>;
    
    /// represents the root of a formula
    fn root_state() -> State
@@ -119,8 +119,8 @@ impl Grammar for State
    {
       let value = compute(formula);
       let score = (2019 - value).abs() as f64;
-      Some(-score)
-      //-score
+      //Some(-score)
+      -score
    }
 
    /// computes the cost of a formula to build a pareto front

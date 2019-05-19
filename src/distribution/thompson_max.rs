@@ -1,4 +1,3 @@
-
 use super::Distribution;
 use rand::Rng;
 

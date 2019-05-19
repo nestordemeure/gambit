@@ -29,7 +29,7 @@ impl<State, ResultType, UnderlyingScoreType> Result<State> for Optional<ResultTy
          ResultType: Result<State, ScoreType = UnderlyingScoreType>
 {
    type ScoreType = Option<UnderlyingScoreType>;
-   
+
    fn new() -> Self
    {
       Optional(ResultType::new())
@@ -53,6 +53,3 @@ impl<State, ResultType, UnderlyingScoreType> Result<State> for Optional<ResultTy
       }
    }
 }
-
-// TODO use a similar approach to deal with options in distributions ?
-// this would require a unified approach to failure, the one used in thompson would make sense
