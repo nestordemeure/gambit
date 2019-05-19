@@ -3,6 +3,7 @@ use crate::tools::lne;
 use crate::distribution::Distribution;
 use crate::grammar::{Grammar, Formula};
 use super::Tree;
+use super::random_expand::random_expand;
 use super::expand::{ReturnType, best_child, expand};
 
 //-----------------------------------------------------------------------------
@@ -13,7 +14,7 @@ fn mean_branch_length<State, Distr>(tree: &Tree<State, Distr>) -> f64
    where State: Grammar,
          Distr: Distribution<ScoreType = State::ScoreType>
 {
-   /// computes the (number of leafs in the tree, the sum of their length)
+   /// computes (number of leafs in the tree, the sum of their length)
    fn length<State, Distr>(tree: &Tree<State, Distr>) -> (usize, usize)
       where State: Grammar,
             Distr: Distribution<ScoreType = State::ScoreType>
@@ -32,9 +33,9 @@ fn mean_branch_length<State, Distr>(tree: &Tree<State, Distr>) -> f64
 }
 
 /// computes the balance factor of the tree
-/// 1 if it is perfectly balanced
-/// >1 if it focusses on few long branches
-/// <1 if it focusses on a depth search with a large spread
+/// the larger it is, the more unbalanced the tree is
+/// NOTE: we are modeling the growth of the tree with the formula:
+/// balance_factor * lne(nb_visit) = mean_formula_length
 pub fn compute_balance_factor<State, Distr>(tree: &Tree<State, Distr>, nb_visit: usize) -> f64
    where State: Grammar,
          Distr: Distribution<ScoreType = State::ScoreType>
@@ -42,6 +43,15 @@ pub fn compute_balance_factor<State, Distr>(tree: &Tree<State, Distr>, nb_visit:
    let length = mean_branch_length(tree);
    let theorical_length = lne(nb_visit as f64); // mean length in a perfectly balanced tree
    length / theorical_length
+}
+
+/// tries to predict the mean length of a formula in the tree
+/// given a balance factor and a number of visits
+/// NOTE: we are modeling the growth of the tree (and all its subtrees) with the formula:
+/// balance_factor * lne(nb_visit) = mean_formula_length
+fn expected_formula_length(balance_factor: f64, nb_visit: u64) -> i64
+{
+   (lne(nb_visit as f64) * balance_factor) as i64
 }
 
 //-----------------------------------------------------------------------------
@@ -122,22 +132,13 @@ pub fn no_expand<State, Distr, RNG>(mut tree: &mut Tree<State, Distr>,
                stack.extend(rule);
                no_expand(&mut tree, distribution_root, rng, available_depth, balance_factor)
             }
-            rules =>
+            _rules =>
             {
-               // non terminal state, we build a node
-               let childrens_distributions = (0..rules.len()).map(|_| Distr::new()).collect();
-               let children =
-                  rules.iter()
-                       .map(|rule| stack.iter().take(stack.len() - 1).chain(rule).cloned().collect())
-                       .map(|stack| Tree::Leaf { formula: formula.clone(), stack })
-                       .collect();
-               let mut new_node = Tree::Node { childrens_distributions, children };
-               // uses the balance_factor (learned on the whole tree) and the number of visits on that node to deduce how far we should be allowed to go
-               let length = lne(distribution_root.nb_visit() as f64) * balance_factor;
-               let available_depth = (length as i64) + available_depth - 1;
-               // we do not return the new_node insuring that the number of nodes will not increase
-               // TODO here we could use some random search
-               expand(&mut new_node, distribution_root, rng, available_depth)
+               // non terminal state, we explore randomly (at a depth function of the balance_factor)
+               let length = expected_formula_length(balance_factor, distribution_root.nb_visit());
+               let search_depth = length + available_depth - 1;
+               let (formula, score) = random_expand(formula.clone(), stack.clone(), rng, search_depth);
+               (ReturnType::DoNothing, formula, score)
             }
          }
       }

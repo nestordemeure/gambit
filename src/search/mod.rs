@@ -12,6 +12,7 @@ mod expand;
 use expand::{expand, ReturnType};
 mod no_expand;
 use no_expand::{no_expand, compute_balance_factor};
+mod random_expand;
 
 //-----------------------------------------------------------------------------
 // TREE
@@ -108,12 +109,13 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
    let mut result = Res::new();
 
    // searches while there is memory available
+   // uses a simple linear model to avoid measuring memory at each iteration
    let mut iteration = 0;
    let mut iteration_previous = 0;
    let mut free_memory_current = memory_tracker.free_memory();
    let mut free_memory_previous = free_memory_current;
-   let mut memory_growth = 0.;
-   let step_size = 1000;
+   let mut memory_growth = 0.; // by how much does the memory grow per iteration
+   let step_size = 1000; // refresh memory measure every step_size iterations
    while (iteration < nb_iterations) && (free_memory_current > free_memory_size)
    {
       let (action, formula, score) = expand(&mut tree, &distribution_root, &mut rng, available_depth as i64);
@@ -125,7 +127,7 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
          ReturnType::DeleteChild => break,
          ReturnType::DoNothing => ()
       }
-      // updates iteration and free_memory_current (using a simple linear model)
+      // updates iteration and free_memory_current
       iteration += 1;
       free_memory_current =
          free_memory_previous + (((iteration - iteration_previous) as f64) * memory_growth) as usize;
@@ -141,7 +143,8 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
 
    // searches that avoids growing the memory
    let balance_factor = compute_balance_factor(&tree, iteration);
-   println!("memory limits reached at iteration n°{}, balance factor is {}, free memory is {}Mo", iteration, balance_factor, free_memory_current);
+   println!("memory limits reached at iteration n°{}, balance factor is {}, free memory is {}Mo",
+            iteration, balance_factor, free_memory_current);
    for _ in iteration..nb_iterations
    {
       let (action, formula, score) =

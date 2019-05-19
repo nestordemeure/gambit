@@ -1,6 +1,7 @@
 #![feature(slice_patterns)]
 #![feature(specialization)]
 #![allow(dead_code)]
+#![allow(unused_imports)]
 
 mod tools;
 mod grammar;
@@ -18,7 +19,7 @@ fn main()
 {
    let depth = 4;
    let nb_iterations = 1_000_000;
-   let free_memory = 100;
+   let free_memory = 700;
    //let result = search::<State, distribution::ThompsonMax, Single<State>>(depth, nb_iterations);
    let result = memory_limited_search::<State, distribution::ThompsonMax, Single<State>>(depth,
                                                                                          nb_iterations,

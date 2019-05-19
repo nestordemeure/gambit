@@ -1,5 +1,5 @@
 use crate::distribution::Distribution;
-use crate::grammar::{Grammar, Formula};
+use crate::grammar::Grammar;
 use crate::search::Tree;
 use std::mem::size_of;
 

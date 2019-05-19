@@ -1,3 +1,4 @@
+use crate::tools::lne;
 use super::Distribution;
 use rand::Rng;
 
@@ -14,26 +15,25 @@ impl ThompsonMax
    /// uses the prior sample a potential score
    fn sample<RNG: Rng>(&self, rng: &mut RNG) -> f64
    {
-      let e = f64::exp(1.);
       let k = self.nb_score as f64;
       let mean = self.sum_scores / k;
-      let sup = f64::ln(k + e) * self.max_score;
+      let sup = lne(k) * self.max_score;
       // TODO max > mean but max*log(k) could be < mean !!
       // rng.gen_range(mean, sup)
-      mean + (sup - mean)*rng.gen::<f64>()
+      mean + (sup - mean) * rng.gen::<f64>()
    }
 }
 
 impl Distribution for ThompsonMax
 {
    type ScoreType = f64;
-   
+
    /// returns a default, empty, prior
    fn new() -> ThompsonMax
    {
       ThompsonMax { nb_score: 0, sum_scores: 0., max_score: std::f64::NEG_INFINITY }
    }
-   
+
    fn nb_visit(&self) -> u64
    {
       self.nb_score
