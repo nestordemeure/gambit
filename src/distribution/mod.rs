@@ -3,23 +3,22 @@ use rand::Rng;
 pub mod thompson_max;
 pub mod ucb_tuned;
 pub mod random;
-pub mod thompson_max_option;
-pub mod ucb_tuned_option;
-pub mod random_option;
+pub mod option;
 
 pub use thompson_max::ThompsonMax;
 pub use ucb_tuned::UcbTuned;
 pub use random::RandomSearch;
-pub use thompson_max_option::ThompsonMaxOption;
-pub use ucb_tuned_option::UcbTunedOption;
-pub use random_option::RandomSearchOption;
+pub use option::Optional;
 
 pub trait Distribution
 {
    type ScoreType;
-   
+
    /// returns a default distribution
    fn new() -> Self;
+
+   /// returns the number of times a given node has been visited
+   fn nb_visit(&self) -> u64;
 
    /// adds a score to the distribution
    fn update(&mut self, score: Self::ScoreType);

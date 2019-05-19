@@ -52,6 +52,11 @@ impl Distribution for UcbTuned
       UcbTuned { nb_score: 0, sum_scores: 0., sum_squared_score: 0. }
    }
 
+   fn nb_visit(&self) -> u64
+   {
+      self.nb_score
+   }
+
    /// adds a score to the distribution
    fn update(&mut self, score: Self::ScoreType)
    {

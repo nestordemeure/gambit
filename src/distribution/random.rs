@@ -1,4 +1,3 @@
-
 use super::Distribution;
 use rand::Rng;
 
@@ -8,10 +7,16 @@ pub struct RandomSearch {}
 impl Distribution for RandomSearch
 {
    type ScoreType = f64;
-   
+
    fn new() -> RandomSearch
    {
       RandomSearch {}
+   }
+   
+   /// returns a dummy value
+   fn nb_visit(&self) -> u64
+   {
+      1
    }
 
    fn update(&mut self, _score: Self::ScoreType) {}

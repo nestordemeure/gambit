@@ -16,6 +16,6 @@ fn main()
 {
    let depth = 4;
    let nb_iterations = 10_000;
-   let result = search::<State, distribution::ThompsonMaxOption, Optional<Single<State>>>(depth, nb_iterations);
+   let result = search::<State, distribution::Optional<distribution::ThompsonMax>, Optional<Single<State>>>(depth, nb_iterations);
    println!("Result obtained in {} iterations: {}", nb_iterations, result);
 }

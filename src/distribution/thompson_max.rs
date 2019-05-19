@@ -34,6 +34,11 @@ impl Distribution for ThompsonMax
    {
       ThompsonMax { nb_score: 0, sum_scores: 0., max_score: std::f64::NEG_INFINITY }
    }
+   
+   fn nb_visit(&self) -> u64
+   {
+      self.nb_score
+   }
 
    /// adds a score to the prior
    fn update(&mut self, score: Self::ScoreType)
