@@ -9,8 +9,8 @@ use std::fmt;
 pub trait Grammar
    where Self: Copy + Clone
 {
-   type ScoreType : Wrap;
-   
+   type ScoreType: Copy + std::fmt::Debug;
+
    /// represents the root of a formula
    fn root_state() -> Self;
 
@@ -23,32 +23,11 @@ pub trait Grammar
 
    /// evaluates a formula
    fn evaluate(formula: &Formula<Self>) -> Self::ScoreType;
-   
+
    /// computes teh cost of the formula (useful to build a pareto front)
-   fn cost(formula: &Formula<Self>) -> usize 
+   fn cost(formula: &Formula<Self>) -> usize
    {
       formula.len()
-   }
-}
-
-pub trait Wrap where Self : Copy + std::fmt::Debug
-{
-   fn wrap(self) -> Option<f64>;
-}
-
-impl Wrap for f64 
-{
-   fn wrap(self) -> Option<f64>
-   {
-      Some(self)
-   }
-}
-
-impl Wrap for Option<f64> 
-{
-   fn wrap(self) -> Option<f64>
-   {
-      self
    }
 }
 
@@ -57,47 +36,44 @@ impl Wrap for Option<f64>
 
 /// represents a serie of states
 #[derive(Clone)]
-pub struct Formula<State:Grammar>
-(
-   Vec<State>
-);
+pub struct Formula<State: Grammar>(Vec<State>);
 
 /// macro to acess methods of inner vector
-impl<State:Grammar> Deref for Formula<State>
+impl<State: Grammar> Deref for Formula<State>
 {
    type Target = Vec<State>;
-   fn deref(&self) -> &Self::Target 
+   fn deref(&self) -> &Self::Target
    {
       &self.0
    }
 }
 
 /// macro to acess methods of inner vector
-impl<State:Grammar> DerefMut for Formula<State>
+impl<State: Grammar> DerefMut for Formula<State>
 {
-   fn deref_mut(&mut self) -> &mut Self::Target 
+   fn deref_mut(&mut self) -> &mut Self::Target
    {
       &mut self.0
    }
 }
 
 /// macro to display a formula
-impl<State:Grammar> fmt::Display for Formula<State> 
+impl<State: Grammar> fmt::Display for Formula<State>
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result 
-    {
-        write!(f, "{}", State::to_string(self))
-    }
+   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+   {
+      write!(f, "{}", State::to_string(self))
+   }
 }
 
-impl<State:Grammar> Formula<State>
+impl<State: Grammar> Formula<State>
 {
    /// creates a new, empty, formula
    pub fn empty() -> Formula<State>
    {
       Formula(vec![])
    }
-   
+
    /// evaluates a formula
    pub fn evaluate(&self) -> State::ScoreType
    {

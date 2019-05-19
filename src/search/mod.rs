@@ -6,18 +6,17 @@ use rand::SeedableRng;
 use rand_xoshiro::Xoshiro256Plus;
 // float manipulation
 use float_ord::FloatOrd;
-// memory measure
-use systemstat::{Platform, System}; // to measure memory use
 
 use crate::distribution::Distribution;
 use crate::grammar::{Grammar, Formula};
 use crate::result::{Result};
+use crate::memory::{MemoryTracker, memory_summary};
 
 //-----------------------------------------------------------------------------
 // TREE
 
 /// either a leaf with a current formula or a node with several children and their prior
-enum Tree<State, Distr>
+pub enum Tree<State, Distr>
    where State: Grammar,
          Distr: Distribution
 {
@@ -194,25 +193,13 @@ fn expand<State, Distr, RNG>(mut tree: &mut Tree<State, Distr>,
 //-----------------------------------------------------------------------------
 // SEARCH
 
-/// returns the memory use in bytes
-fn memory_usage<P>(system: &P) -> usize
-   where P: Platform
-{
-   match system.memory()
-   {
-      Ok(mem) => (mem.total - mem.free).as_usize(),
-      Err(x) => panic!("Unable to measure memory: {}", x)
-   }
-}
-
 /// performs the search for a given number of iterations
 pub fn search<State, Distr, Res>(available_depth: i16, nb_iterations: u64) -> Res
    where State: Grammar,
          Distr: Distribution<ScoreType = State::ScoreType>,
-         Res: Result<State>
+         Res: Result<State, ScoreType = State::ScoreType>
 {
-   let system = System::new();
-   let memory_without = memory_usage(&system);
+   let memory_tracker = MemoryTracker::new();
 
    let mut rng = Xoshiro256Plus::seed_from_u64(0); //from_entropy();
    let mut distribution_root = Distr::new();
@@ -231,9 +218,8 @@ pub fn search<State, Distr, Res>(available_depth: i16, nb_iterations: u64) -> Re
       }
    }
 
-   let memory_with = memory_usage(&system);
-   println!("memory consumption: {} Mo", (memory_with - memory_without) / 1_000_000);
-
+   memory_summary(&tree);
+   memory_tracker.print_memory_usage();
    result
 }
 

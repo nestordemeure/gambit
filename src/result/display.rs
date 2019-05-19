@@ -17,6 +17,8 @@ impl<ResultType:Display> Display for DisplayProgress<ResultType>
 /// implements the result trait
 impl<State, ResultType> Result<State> for DisplayProgress<ResultType> where State: Grammar, ResultType:Result<State>
 {
+   type ScoreType = ResultType::ScoreType;
+   
    fn new() -> Self
    {
       DisplayProgress(ResultType::new())
@@ -28,7 +30,7 @@ impl<State, ResultType> Result<State> for DisplayProgress<ResultType> where Stat
    }
    
    /// update the result and displays a message if we improved on the best value so far
-   fn update(&mut self, formula: Formula<State>, score: State::ScoreType) -> bool
+   fn update(&mut self, formula: Formula<State>, score: Self::ScoreType) -> bool
    {
       let improvement = self.0.update(formula, score);
       if improvement
