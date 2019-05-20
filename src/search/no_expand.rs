@@ -17,11 +17,11 @@ fn mean_branch_length<Distr: Distribution>(tree: &Tree<Distr>) -> f64
    {
       match tree
       {
-         Tree::Leaf { .. } => (1, 0),
-         Tree::Node (box Node { children, .. }) => children.iter().fold((0, 0), |(na, ta), child| {
-                                                          let (n, t) = length(child);
-                                                          (na + n, ta + t + na)
-                                                       })
+         Tree::Leaf | Tree::Deleted => (1, 0),
+         Tree::Node(box Node { children, .. }) => children.iter().fold((0, 0), |(na, ta), child| {
+                                                                    let (n, t) = length(child);
+                                                                    (na + n, ta + t + na)
+                                                                 })
       }
    }
    let (nb_leafs, total_length) = length(tree);
@@ -56,6 +56,8 @@ fn expected_formula_length(balance_factor: f64, nb_visit: u64) -> i64
 /// NOTE: this function will not grow the tree, instead it will only update priors
 pub fn no_expand<State, Distr, RNG>(mut tree: &mut Tree<Distr>,
                                     distribution_root: &Distr,
+                                    mut formula: Formula<State>,
+                                    mut stack: Vec<State>,
                                     rng: &mut RNG,
                                     available_depth: i64,
                                     balance_factor: f64)
@@ -64,52 +66,17 @@ pub fn no_expand<State, Distr, RNG>(mut tree: &mut Tree<Distr>,
          Distr: Distribution<ScoreType = State::ScoreType>,
          RNG: Rng
 {
-   match tree
+   match stack.last()
    {
-      Tree::Node(box Node { ref mut childrens_distributions, ref mut children }) =>
+      None =>
       {
-         let index_best_child = best_child(childrens_distributions, distribution_root, rng, available_depth);
-         let (action, formula, score) = no_expand(&mut children[index_best_child],
-                                                  &childrens_distributions[index_best_child],
-                                                  rng,
-                                                  available_depth,
-                                                  balance_factor);
-         match action
-         {
-            ReturnType::DeleteChild if children.len() == 1 =>
-            {
-               // no more child if we remove this child : we can remove this node
-               (action, formula, score)
-            }
-            ReturnType::DeleteChild =>
-            {
-               // we can remove this child from the node
-               children.swap_remove(index_best_child);
-               childrens_distributions.swap_remove(index_best_child);
-               // save a bit of memory since it matters more than speed
-               children.shrink_to_fit();
-               childrens_distributions.shrink_to_fit();
-               (ReturnType::DoNothing, formula, score)
-            }
-            ReturnType::DoNothing =>
-            {
-               // we can update the child's prior
-               childrens_distributions[index_best_child].update(score);
-               (action, formula, score)
-            }
-            ReturnType::NewTree(child_tree) =>
-            {
-               // we can replace this child and update its prior
-               children[index_best_child] = child_tree;
-               childrens_distributions[index_best_child].update(score);
-               (ReturnType::DoNothing, formula, score)
-            }
-         }
+         // terminal node, we evaluate the formula and backpropagate
+         let score = formula.evaluate();
+         (ReturnType::DeleteChild, formula, score)
       }
-      Tree::Leaf { formula, stack } if !stack.is_empty() =>
+      Some(&state) =>
       {
          // non terminal leaf, we expand into a node
-         let state = *stack.last().unwrap(); // note that we do not mutate the stack yet
          match state.expand().as_slice()
          {
             [] =>
@@ -117,29 +84,83 @@ pub fn no_expand<State, Distr, RNG>(mut tree: &mut Tree<Distr>,
                // terminal state
                stack.pop();
                formula.push(state);
-               no_expand(&mut tree, distribution_root, rng, available_depth, balance_factor)
+               no_expand(&mut tree, distribution_root, formula, stack, rng, available_depth, balance_factor)
             }
             [rule] =>
             {
                // single rule, we can focus on it
                stack.pop();
                stack.extend(rule);
-               no_expand(&mut tree, distribution_root, rng, available_depth, balance_factor)
+               no_expand(&mut tree, distribution_root, formula, stack, rng, available_depth, balance_factor)
             }
-            _rules =>
+            rules =>
             {
-               // non terminal state, we explore randomly (at a depth function of the balance_factor)
-               let length = expected_formula_length(balance_factor, distribution_root.nb_visit());
-               let search_depth = length + available_depth - 1;
-               let (formula, score) = random_expand(formula.clone(), stack.clone(), rng, search_depth);
-               (ReturnType::DoNothing, formula, score)
+               // we need to choose a rule
+               match tree
+               {
+                  Tree::Deleted => panic!("Expand: tried to explore a deleted tree!"),
+                  Tree::Leaf =>
+                  {
+                     // non terminal state, we explore randomly (at a depth function of the balance_factor)
+                     let length = expected_formula_length(balance_factor, distribution_root.nb_visit());
+                     let search_depth = length + available_depth - 1;
+                     let (formula, score) = random_expand(formula, stack, rng, search_depth);
+                     (ReturnType::DoNothing, formula, score)
+                  }
+                  Tree::Node(box Node { ref mut childrens_distributions, ref mut children }) =>
+                  {
+                     // we choose a child using the prior and explore it
+                     let index_best_child = best_child(childrens_distributions,
+                                                       children,
+                                                       distribution_root,
+                                                       rng,
+                                                       available_depth);
+                     // update the stack
+                     let rule = rules[index_best_child].clone();
+                     stack.pop();
+                     stack.extend(rule);
+                     // expand the child
+                     let (action, formula, score) = no_expand(&mut children[index_best_child],
+                                                              &childrens_distributions[index_best_child],
+                                                              formula,
+                                                              stack,
+                                                              rng,
+                                                              available_depth,
+                                                              balance_factor);
+                     match action
+                     {
+                        ReturnType::DeleteChild =>
+                        {
+                           children[index_best_child] = Tree::Deleted;
+                           if children.iter().all(Tree::is_deleted)
+                           {
+                              // no more children, we can delete this node
+                              (ReturnType::DeleteChild, formula, score)
+                           }
+                           else
+                           {
+                              // still some children, we keep this node
+                              (ReturnType::DoNothing, formula, score)
+                           }
+                        }
+                        ReturnType::DoNothing =>
+                        {
+                           // we can update the child's prior
+                           childrens_distributions[index_best_child].update(score);
+                           (ReturnType::DoNothing, formula, score)
+                        }
+                        ReturnType::NewTree(child_tree) =>
+                        {
+                           // we can replace this child and update its prior
+                           children[index_best_child] = child_tree;
+                           childrens_distributions[index_best_child].update(score);
+                           (ReturnType::DoNothing, formula, score)
+                        }
+                     }
+                  }
+               }
             }
          }
-      }
-      Tree::Leaf { formula, .. } =>
-      {
-         let score = formula.evaluate();
-         (ReturnType::DeleteChild, formula.clone(), score)
       }
    }
 }

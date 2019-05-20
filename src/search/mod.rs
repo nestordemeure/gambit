@@ -105,11 +105,10 @@ pub fn best_child<Distr, RNG>(distributions: &[Distr],
 }
 
 /// if the result does not modify the tree, we inject the given tree
-pub fn new_tree<State, Distr>(result: (ReturnType<Tree<Distr>>, Formula<State>, State::ScoreType),
-                              tree: Tree<Distr>)
-                              -> (ReturnType<Tree<Distr>>, Formula<State>, State::ScoreType)
-   where State: Grammar,
-         Distr: Distribution
+pub fn new_tree<State: Grammar, Distr: Distribution>(
+   result: (ReturnType<Tree<Distr>>, Formula<State>, State::ScoreType),
+   tree: Tree<Distr>)
+   -> (ReturnType<Tree<Distr>>, Formula<State>, State::ScoreType)
 {
    match result
    {
@@ -183,7 +182,7 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
 
    let mut rng = Xoshiro256Plus::seed_from_u64(0); //from_entropy();
    let mut distribution_root = Distr::new();
-   let mut tree = Tree::<Distr>::root();
+   let mut tree = Tree::<Distr>::new();
    let mut result = Res::new();
 
    // searches while there is memory available
@@ -198,7 +197,8 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
    {
       let formula = Formula::empty();
       let stack = vec![State::root_state()];
-      let (action, formula, score) = expand(&mut tree, &distribution_root, formula, stack, &mut rng, available_depth as i64);
+      let (action, formula, score) =
+         expand(&mut tree, &distribution_root, formula, stack, &mut rng, available_depth as i64);
       distribution_root.update(score);
       result.update(formula, score);
       match action
@@ -229,8 +229,13 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
    {
       let formula = Formula::empty();
       let stack = vec![State::root_state()];
-      let (action, formula, score) =
-         no_expand(&mut tree, &distribution_root, &mut rng, formula, stack, available_depth as i64, balance_factor);
+      let (action, formula, score) = no_expand(&mut tree,
+                                               &distribution_root,
+                                               formula,
+                                               stack,
+                                               &mut rng,
+                                               available_depth as i64,
+                                               balance_factor);
       distribution_root.update(score);
       result.update(formula, score);
       match action
