@@ -1,6 +1,8 @@
+use rand::Rng;
 //use rand::FromEntropy; // for random initialisation
 use rand::SeedableRng;
 use rand_xoshiro::Xoshiro256Plus;
+use float_ord::FloatOrd;
 use crate::distribution::Distribution;
 use crate::distribution;
 use crate::grammar::{Grammar, Formula};
@@ -9,37 +11,110 @@ use crate::result::{Result};
 use crate::memory::{MemoryTracker, memory_summary};
 
 mod expand;
-use expand::{expand, ReturnType};
+use expand::expand;
 mod no_expand;
 use no_expand::{no_expand, compute_balance_factor};
 mod random_expand;
 
 //-----------------------------------------------------------------------------
-// TREE
+// TYPES
 
-/// either a leaf with a current formula or a node with several children and their prior
-pub enum Tree<State, Distr>
-   where State: Grammar,
-         Distr: Distribution
+/// several children and their distributions
+pub struct Node<Distr: Distribution>
 {
-   Leaf
+   pub children: Box<[Tree<Distr>]>,
+   pub childrens_distributions: Box<[Distr]>
+}
+
+/// either a previously deleted node, a leaf or a node with children
+pub enum Tree<Distr: Distribution>
+{
+   Deleted,
+   Leaf,
+   Node(Box<Node<Distr>>) // we use a box to reduce the memory footprint of the tree that are not nodes
+}
+
+/// represents the output of an expand operation
+pub enum ReturnType<Tree>
+{
+   NewTree(Tree),
+   DeleteChild,
+   DoNothing
+}
+
+//-----------------------------------------------------------------------------
+// FUNCTIONS
+
+impl<Distr: Distribution> Tree<Distr>
+{
+   /// creates a new, empty, tree
+   fn new() -> Self
    {
-      formula: Formula<State>, stack: Vec<State>
-   },
-   Node
+      Tree::Leaf
+   }
+
+   /// returns true if a tree has been deleted
+   fn is_deleted(tree: &Tree<Distr>) -> bool
    {
-      children: Vec<Tree<State, Distr>>, childrens_distributions: Vec<Distr>
+      match tree
+      {
+         Tree::Deleted => true,
+         _ => false
+      }
    }
 }
 
-impl<State, Distr> Tree<State, Distr>
+/// selects the node with the maximum score (breaks ties at random)
+/// leafs having an infinite score, they are taken in priority
+/// NOTE: this function could be rewritten in a more efficient way if needed
+pub fn best_child<Distr, RNG>(distributions: &[Distr],
+                              children: &[Tree<Distr>],
+                              default_distr: &Distr,
+                              mut rng: &mut RNG,
+                              available_depth: i64)
+                              -> usize
+   where Distr: Distribution,
+         RNG: Rng
+{
+   if available_depth <= 0
+   {
+      // we return the first child which, by convention, should be on the shortest path to a valid formula
+      0
+   }
+   else
+   {
+      let (index, _) = distributions.iter()
+                                    .zip(children)
+                                    .enumerate()
+                                    .filter_map(|(i, (distr, tree))| {
+                                       if Tree::is_deleted(tree)
+                                       {
+                                          None
+                                       }
+                                       else
+                                       {
+                                          Some((i, distr))
+                                       }
+                                    })
+                                    .max_by_key(|&(_, distr)| {
+                                       (FloatOrd(distr.score(default_distr, &mut rng)), rng.gen::<usize>()) // ties are broken randomly
+                                    })
+                                    .expect("best_child: tried to find the best child in an empty array.");
+      index
+   }
+}
+
+/// if the result does not modify the tree, we inject the given tree
+pub fn new_tree<State, Distr>(result: (ReturnType<Tree<Distr>>, Formula<State>, State::ScoreType),
+                              tree: Tree<Distr>)
+                              -> (ReturnType<Tree<Distr>>, Formula<State>, State::ScoreType)
    where State: Grammar,
          Distr: Distribution
 {
-   /// creates a root tree
-   fn root() -> Tree<State, Distr>
+   match result
    {
-      Tree::Leaf { formula: Formula::<State>::empty(), stack: vec![State::root_state()] }
+      (ReturnType::DoNothing, formula, score) => (ReturnType::NewTree(tree), formula, score),
+      _ => result
    }
 }
 
@@ -57,11 +132,14 @@ pub fn search<State, Distr, Res>(available_depth: usize, nb_iterations: usize) -
 
    let mut rng = Xoshiro256Plus::seed_from_u64(0); //from_entropy();
    let mut distribution_root = Distr::new();
-   let mut tree = Tree::<State, Distr>::root();
+   let mut tree = Tree::<Distr>::new();
    let mut result = Res::new();
    for _ in 0..nb_iterations
    {
-      let (action, formula, score) = expand(&mut tree, &distribution_root, &mut rng, available_depth as i64);
+      let formula = Formula::empty();
+      let stack = vec![State::root_state()];
+      let (action, formula, score) =
+         expand(&mut tree, &distribution_root, formula, stack, &mut rng, available_depth as i64);
       distribution_root.update(score);
       result.update(formula, score);
       match action
@@ -105,7 +183,7 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
 
    let mut rng = Xoshiro256Plus::seed_from_u64(0); //from_entropy();
    let mut distribution_root = Distr::new();
-   let mut tree = Tree::<State, Distr>::root();
+   let mut tree = Tree::<Distr>::root();
    let mut result = Res::new();
 
    // searches while there is memory available
@@ -118,7 +196,9 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
    let step_size = 1000; // refresh memory measure every step_size iterations
    while (iteration < nb_iterations) && (free_memory_current > free_memory_size)
    {
-      let (action, formula, score) = expand(&mut tree, &distribution_root, &mut rng, available_depth as i64);
+      let formula = Formula::empty();
+      let stack = vec![State::root_state()];
+      let (action, formula, score) = expand(&mut tree, &distribution_root, formula, stack, &mut rng, available_depth as i64);
       distribution_root.update(score);
       result.update(formula, score);
       match action
@@ -147,8 +227,10 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
             iteration, balance_factor, free_memory_current);
    for _ in iteration..nb_iterations
    {
+      let formula = Formula::empty();
+      let stack = vec![State::root_state()];
       let (action, formula, score) =
-         no_expand(&mut tree, &distribution_root, &mut rng, available_depth as i64, balance_factor);
+         no_expand(&mut tree, &distribution_root, &mut rng, formula, stack, available_depth as i64, balance_factor);
       distribution_root.update(score);
       result.update(formula, score);
       match action

@@ -4,7 +4,7 @@ use crate::grammar::{Grammar, Formula};
 // TYPE
 
 /// represents a state
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum State
 {
    Expr,

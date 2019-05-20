@@ -4,25 +4,21 @@ use crate::distribution::Distribution;
 use crate::grammar::{Grammar, Formula};
 use super::Tree;
 use super::random_expand::random_expand;
-use super::expand::{ReturnType, best_child, expand};
+use super::*;
 
 //-----------------------------------------------------------------------------
 // FUNCTION
 
 /// computes the mean length of a branch in the tree
-fn mean_branch_length<State, Distr>(tree: &Tree<State, Distr>) -> f64
-   where State: Grammar,
-         Distr: Distribution<ScoreType = State::ScoreType>
+fn mean_branch_length<Distr: Distribution>(tree: &Tree<Distr>) -> f64
 {
    /// computes (number of leafs in the tree, the sum of their length)
-   fn length<State, Distr>(tree: &Tree<State, Distr>) -> (usize, usize)
-      where State: Grammar,
-            Distr: Distribution<ScoreType = State::ScoreType>
+   fn length<Distr: Distribution>(tree: &Tree<Distr>) -> (usize, usize)
    {
       match tree
       {
          Tree::Leaf { .. } => (1, 0),
-         Tree::Node { children, .. } => children.iter().fold((0, 0), |(na, ta), child| {
+         Tree::Node (box Node { children, .. }) => children.iter().fold((0, 0), |(na, ta), child| {
                                                           let (n, t) = length(child);
                                                           (na + n, ta + t + na)
                                                        })
@@ -36,9 +32,7 @@ fn mean_branch_length<State, Distr>(tree: &Tree<State, Distr>) -> f64
 /// the larger it is, the more unbalanced the tree is
 /// NOTE: we are modeling the growth of the tree with the formula:
 /// balance_factor * lne(nb_visit) = mean_formula_length
-pub fn compute_balance_factor<State, Distr>(tree: &Tree<State, Distr>, nb_visit: usize) -> f64
-   where State: Grammar,
-         Distr: Distribution<ScoreType = State::ScoreType>
+pub fn compute_balance_factor<Distr: Distribution>(tree: &Tree<Distr>, nb_visit: usize) -> f64
 {
    let length = mean_branch_length(tree);
    let theorical_length = lne(nb_visit as f64); // mean length in a perfectly balanced tree
@@ -60,19 +54,19 @@ fn expected_formula_length(balance_factor: f64, nb_visit: u64) -> i64
 /// takes a tree, its prior, a random number generator and the available depth and expand the tree
 /// return the result of the expansion as a (ReturnType, formula, Option<score>)
 /// NOTE: this function will not grow the tree, instead it will only update priors
-pub fn no_expand<State, Distr, RNG>(mut tree: &mut Tree<State, Distr>,
+pub fn no_expand<State, Distr, RNG>(mut tree: &mut Tree<Distr>,
                                     distribution_root: &Distr,
                                     rng: &mut RNG,
                                     available_depth: i64,
                                     balance_factor: f64)
-                                    -> (ReturnType<Tree<State, Distr>>, Formula<State>, State::ScoreType)
+                                    -> (ReturnType<Tree<Distr>>, Formula<State>, State::ScoreType)
    where State: Grammar,
          Distr: Distribution<ScoreType = State::ScoreType>,
          RNG: Rng
 {
    match tree
    {
-      Tree::Node { ref mut childrens_distributions, ref mut children } =>
+      Tree::Node(box Node { ref mut childrens_distributions, ref mut children }) =>
       {
          let index_best_child = best_child(childrens_distributions, distribution_root, rng, available_depth);
          let (action, formula, score) = no_expand(&mut children[index_best_child],
