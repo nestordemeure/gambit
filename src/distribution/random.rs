@@ -2,6 +2,7 @@ use super::Distribution;
 use rand::Rng;
 
 /// does not store informations
+#[derive(Clone)]
 pub struct RandomSearch {}
 
 impl Distribution for RandomSearch

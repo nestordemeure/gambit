@@ -3,6 +3,7 @@ use super::Distribution;
 use rand::Rng;
 
 /// stores information gotten during previous runs
+#[derive(Clone)]
 pub struct ThompsonMax
 {
    nb_score: u64,

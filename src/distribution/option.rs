@@ -1,6 +1,7 @@
 use super::Distribution;
 use rand::Rng;
 
+#[derive(Clone)]
 pub struct Optional<Distr: Distribution>
 {
    nb_visit: u64,

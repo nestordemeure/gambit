@@ -10,7 +10,7 @@ pub use ucb_tuned::UcbTuned;
 pub use random::RandomSearch;
 pub use option::Optional;
 
-pub trait Distribution
+pub trait Distribution : Clone
 {
    type ScoreType;
 

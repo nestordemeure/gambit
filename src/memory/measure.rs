@@ -8,15 +8,14 @@ fn count_elements<Distr: Distribution>(tree: &Tree<Distr>) -> (usize, usize, usi
 {
    match tree
    {
-      Tree::Deleted => (1, 0, 0),
-      Tree::Leaf => (1, 0, 0),
-      Tree::Node(box Node { children, childrens_distributions }) =>
+      Tree::Node(box Node { children, .. }) =>
       {
-         let nb_distr = childrens_distributions.len();
          children.iter()
                  .map(|child| count_elements(child))
-                 .fold((1, 1, nb_distr), |(ta, na, da), (t, n, d)| (ta + t, na + n, da + d))
+                 .fold((1, 1, 1), |(ta, na, da), (t, n, d)| (ta + t, na + n, da + d))
       }
+      Tree::KnownLeaf(_) => (1, 0, 1),
+      _ => (1, 0, 0),
    }
 }
 
