@@ -19,6 +19,19 @@ fn count_elements<Distr: Distribution>(tree: &Tree<Distr>) -> (usize, usize, usi
    }
 }
 
+/// returns the full memory used, expressed in Mo
+pub fn memory_used<Distr: Distribution>(tree: &Tree<Distr>) -> usize
+{
+   let tree_size = size_of::<Tree<Distr>>();
+   let node_size = size_of::<Node<Distr>>();
+   let distr_size = size_of::<Distr>();
+   let (nb_tree, nb_nodes, nb_distr) = count_elements(tree);
+   let memory_trees = nb_tree * tree_size;
+   let memory_nodes = nb_nodes * node_size;
+   let memory_distr = nb_distr * distr_size;
+   (memory_nodes + memory_distr + memory_trees) / 1_000_000
+}
+
 /// prints a summay of the memory use of the given tree
 /// the measure seem to be optimistic by roughly 30%, maybe because of fragmentation ?
 pub fn memory_summary<Distr: Distribution>(tree: &Tree<Distr>)

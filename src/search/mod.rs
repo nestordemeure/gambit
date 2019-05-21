@@ -8,7 +8,7 @@ use crate::distribution;
 use crate::grammar::{Grammar, Formula};
 use crate::result;
 use crate::result::{Result};
-use crate::memory::{MemoryTracker, memory_summary};
+use crate::memory::{MemoryTracker, memory_summary, memory_used};
 use std::mem::discriminant;
 
 mod expand;
@@ -313,11 +313,12 @@ pub fn nested_search<State, Distr, Res>(available_depth: usize,
 
    // searches while there is memory available
    // uses a simple linear model to avoid measuring memory at each iteration
+   let free_memory_base = memory_tracker.free_memory();
    let mut iteration_previous = 0;
-   let mut free_memory_current = memory_tracker.free_memory();
+   let mut free_memory_current = free_memory_base - memory_used(&tree);
    let mut free_memory_previous = free_memory_current;
    let mut memory_growth = 0.; // by how much does the memory grow per iteration
-   let step_size = 1000; // refresh memory measure every step_size iterations
+   let step_size = 10000; // refresh memory measure every step_size iterations
    for iteration in 0..nb_iterations
    {
       let formula = Formula::empty();
@@ -335,16 +336,19 @@ pub fn nested_search<State, Distr, Res>(available_depth: usize,
          free_memory_previous + (((iteration - iteration_previous) as f64) * memory_growth) as usize;
       if ((iteration_previous + iteration) % step_size == 0) || (free_memory_current < free_memory_size)
       {
-         free_memory_current = memory_tracker.free_memory();
-         memory_growth =
-            (free_memory_current - free_memory_previous) as f64 / (iteration - iteration_previous) as f64;
-         iteration_previous = iteration;
-         free_memory_previous = free_memory_current;
+         // has a direct computation of the memory used is an expensive operation, we need a large step size to amortize the cost
+         free_memory_current = free_memory_base - memory_used(&tree);
          if free_memory_current < free_memory_size
          {
             println!("iteration {}, pruning tree", iteration);
             prune(&mut tree);
+            // we cannot use RAM usage here as it is not refreshed quicly enough
+            free_memory_current = free_memory_base - memory_used(&tree);
          }
+         memory_growth =
+            (free_memory_current - free_memory_previous) as f64 / (iteration - iteration_previous) as f64;
+         iteration_previous = iteration;
+         free_memory_previous = free_memory_current;
       }
    }
 
