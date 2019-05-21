@@ -53,7 +53,7 @@ pub fn expand<State, Distr, RNG>(mut tree: &mut Tree<Distr>,
                   {
                      // we expand the leaf and then explore it
                      let children = (0..rules.len()).map(|_| Tree::Leaf).collect();
-                     let mut new_node = Tree::Node(Box::new(Node { distribution:Distr::new(), children }));
+                     let mut new_node = Tree::Node(Box::new(Node { distribution: Distr::new(), children }));
                      let result = expand(&mut new_node, formula, stack, rng, available_depth - 1);
                      new_tree(result, new_node)
                   }
@@ -61,27 +61,22 @@ pub fn expand<State, Distr, RNG>(mut tree: &mut Tree<Distr>,
                   {
                      // we expand the leaf and then explore it
                      let children = (0..rules.len()).map(|_| Tree::Leaf).collect();
-                     let mut new_node = Tree::Node(Box::new(Node { distribution:distribution.clone(), children }));
+                     let mut new_node =
+                        Tree::Node(Box::new(Node { distribution: distribution.clone(), children }));
                      let result = expand(&mut new_node, formula, stack, rng, available_depth - 1);
                      new_tree(result, new_node)
                   }
                   Tree::Node(box Node { ref mut distribution, ref mut children }) =>
                   {
                      // we choose a child using the prior and explore it
-                     let index_best_child = best_child(children,
-                                                       distribution,
-                                                       rng,
-                                                       available_depth);
+                     let index_best_child = best_child(children, distribution, rng, available_depth);
                      // update the stack
                      let rule = rules[index_best_child].clone();
                      stack.pop();
                      stack.extend(rule);
                      // expand the child
-                     let (action, formula, score) = expand(&mut children[index_best_child],
-                                                           formula,
-                                                           stack,
-                                                           rng,
-                                                           available_depth);
+                     let (action, formula, score) =
+                        expand(&mut children[index_best_child], formula, stack, rng, available_depth);
                      distribution.update(score);
                      match action
                      {

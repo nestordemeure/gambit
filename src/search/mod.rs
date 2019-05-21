@@ -63,22 +63,21 @@ impl<Distr: Distribution> Tree<Distr>
          _ => false
       }
    }
-   
    fn is_unknown_leaf(&self) -> bool
    {
-      match self 
+      match self
       {
          Tree::Leaf => true,
          _ => false
       }
    }
-   
-   fn distribution(&self) -> &Distr 
+
+   fn distribution(&self) -> &Distr
    {
       match self
       {
          Tree::KnownLeaf(box distr) => distr,
-         Tree::Node(box Node {distribution: distr, ..}) => distr,
+         Tree::Node(box Node { distribution: distr, .. }) => distr,
          _ => panic!("tried to get distribution from Tree that does not have one.")
       }
    }
@@ -100,16 +99,21 @@ pub fn best_child<Distr, RNG>(children: &[Tree<Distr>],
       // we return the first child which, by convention, should be on the shortest path to a valid formula
       return 0;
    }
-   let best_leaf = children.iter().enumerate().filter(|(_,tree)| tree.is_unknown_leaf()).max_by_key(|_| rng.gen::<usize>());
+   let best_leaf = children.iter()
+                           .enumerate()
+                           .filter(|(_, tree)| tree.is_unknown_leaf())
+                           .max_by_key(|_| rng.gen::<usize>());
    match best_leaf
    {
-      Some((i,_)) => i,
+      Some((i, _)) => i,
       None =>
       {
-         let (i, _) = children.iter().enumerate()
-         .filter(|(_,tree)| !tree.is_deleted())
-         .max_by_key(|(_,tree)| FloatOrd(tree.distribution().score(default_distr, &mut rng) ) )
-         .expect("best_child: tried to find the best child in an empty array.");
+         let (i, _) =
+            children.iter()
+                    .enumerate()
+                    .filter(|(_, tree)| !tree.is_deleted())
+                    .max_by_key(|(_, tree)| FloatOrd(tree.distribution().score(default_distr, &mut rng)))
+                    .expect("best_child: tried to find the best child in an empty array.");
          i
       }
    }
@@ -147,8 +151,7 @@ pub fn search<State, Distr, Res>(available_depth: usize, nb_iterations: usize) -
    {
       let formula = Formula::empty();
       let stack = vec![State::root_state()];
-      let (action, formula, score) =
-         expand(&mut tree, formula, stack, &mut rng, available_depth as i64);
+      let (action, formula, score) = expand(&mut tree, formula, stack, &mut rng, available_depth as i64);
       result.update(formula, score);
       match action
       {
@@ -205,8 +208,7 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
    {
       let formula = Formula::empty();
       let stack = vec![State::root_state()];
-      let (action, formula, score) =
-         expand(&mut tree, formula, stack, &mut rng, available_depth as i64);
+      let (action, formula, score) = expand(&mut tree, formula, stack, &mut rng, available_depth as i64);
       result.update(formula, score);
       match action
       {
@@ -236,12 +238,8 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
    {
       let formula = Formula::empty();
       let stack = vec![State::root_state()];
-      let (action, formula, score) = no_expand(&mut tree,
-                                               formula,
-                                               stack,
-                                               &mut rng,
-                                               available_depth as i64,
-                                               balance_factor);
+      let (action, formula, score) =
+         no_expand(&mut tree, formula, stack, &mut rng, available_depth as i64, balance_factor);
       result.update(formula, score);
       match action
       {

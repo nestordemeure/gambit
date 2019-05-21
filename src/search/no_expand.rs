@@ -17,11 +17,15 @@ fn mean_branch_length<Distr: Distribution>(tree: &Tree<Distr>) -> f64
    {
       match tree
       {
-         Tree::Node(box Node { children, .. }) => children.iter().fold((0, 0), |(na, ta), child| {
-                                                                    let (n, t) = length(child);
-                                                                    (na + n, ta + t + na)
-                                                                 }),
-         _ => (0,1)
+         Tree::Node(box Node { children, .. }) =>
+         {
+            children.iter().filter(|child| !child.is_deleted()).fold((0, 0), |(na, ta), child| {
+                                                                  let (n, t) = length(child);
+                                                                  (na + n, ta + t + n)
+                                                               })
+         }
+         Tree::Deleted => (0, 0),
+         Tree::Leaf | Tree::KnownLeaf(_) => (1, 0)
       }
    }
    let (nb_leafs, total_length) = length(tree);
@@ -121,10 +125,7 @@ pub fn no_expand<State, Distr, RNG>(mut tree: &mut Tree<Distr>,
                   Tree::Node(box Node { ref mut distribution, ref mut children }) =>
                   {
                      // we choose a child using the prior and explore it
-                     let index_best_child = best_child(children,
-                                                       distribution,
-                                                       rng,
-                                                       available_depth);
+                     let index_best_child = best_child(children, distribution, rng, available_depth);
                      // update the stack
                      let rule = rules[index_best_child].clone();
                      stack.pop();
