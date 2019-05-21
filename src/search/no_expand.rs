@@ -17,13 +17,10 @@ fn mean_branch_length<Distr: Distribution>(tree: &Tree<Distr>) -> f64
    {
       match tree
       {
-         Tree::Node(box Node { children, .. }) =>
-         {
-            children.iter().filter(|child| !child.is_deleted()).fold((0, 0), |(na, ta), child| {
-                                                                  let (n, t) = length(child);
-                                                                  (na + n, ta + t + n)
-                                                               })
-         }
+         Tree::Node(box Node { children, .. }) => children.iter().fold((0, 0), |(na, ta), child| {
+                                                                    let (n, t) = length(child);
+                                                                    (na + n, ta + t + n)
+                                                                 }),
          Tree::Deleted => (0, 0),
          Tree::Leaf | Tree::KnownLeaf(_) => (1, 0)
       }
@@ -39,7 +36,7 @@ fn mean_branch_length<Distr: Distribution>(tree: &Tree<Distr>) -> f64
 pub fn compute_balance_factor<Distr: Distribution>(tree: &Tree<Distr>, nb_visit: usize) -> f64
 {
    let length = mean_branch_length(tree);
-   let theorical_length = lne(nb_visit as f64); // mean length in a perfectly balanced tree
+   let theorical_length = lne(nb_visit as f64);
    length / theorical_length
 }
 
@@ -143,7 +140,7 @@ pub fn no_expand<State, Distr, RNG>(mut tree: &mut Tree<Distr>,
                         ReturnType::DeleteChild =>
                         {
                            children[index_best_child] = Tree::Deleted;
-                           if children.iter().all(Tree::is_deleted)
+                           if children.iter().all(|t| discriminant(t) == discriminant(&Tree::Deleted))
                            {
                               // no more children, we can delete this node
                               (ReturnType::DeleteChild, formula, score)

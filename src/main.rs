@@ -12,7 +12,7 @@ mod result;
 mod memory;
 mod test;
 
-use search::{search, search_optional, memory_limited_search};
+use search::{search, search_optional, memory_limited_search, nested_search};
 use test::grammar2019::State;
 use result::{ParetoFront, DisplayProgress, Single};
 
@@ -22,9 +22,8 @@ fn main()
    let nb_iterations = 1_000_000;
    let free_memory = 900;
    //let result = search::<State, distribution::ThompsonMax, Single<State>>(depth, nb_iterations);
-   let result = memory_limited_search::<State, distribution::ThompsonMax, Single<State>>(depth,
-                                                                                         nb_iterations,
-                                                                                         free_memory);
+   //let result = memory_limited_search::<State, distribution::ThompsonMax, Single<State>>(depth, nb_iterations, free_memory);
+   //let result = nested_search::<State, distribution::ThompsonMax, Single<State>>(depth, nb_iterations, free_memory);
    //let result = search_optional::<State, distribution::ThompsonMax, Single<State>>(depth, nb_iterations);
    println!("Result obtained in {} iterations: {}", nb_iterations, result);
 }

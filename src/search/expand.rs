@@ -83,7 +83,7 @@ pub fn expand<State, Distr, RNG>(mut tree: &mut Tree<Distr>,
                         ReturnType::DeleteChild =>
                         {
                            children[index_best_child] = Tree::Deleted;
-                           if children.iter().all(Tree::is_deleted)
+                           if children.iter().all(|t| discriminant(t) == discriminant(&Tree::Deleted))
                            {
                               // no more children, we can delete this node
                               (ReturnType::DeleteChild, formula, score)

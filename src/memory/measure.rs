@@ -15,7 +15,7 @@ fn count_elements<Distr: Distribution>(tree: &Tree<Distr>) -> (usize, usize, usi
                  .fold((1, 1, 1), |(ta, na, da), (t, n, d)| (ta + t, na + n, da + d))
       }
       Tree::KnownLeaf(_) => (1, 0, 1),
-      _ => (1, 0, 0),
+      _ => (1, 0, 0)
    }
 }
 
