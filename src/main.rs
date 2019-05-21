@@ -26,3 +26,9 @@ fn main()
    //let result = search_optional::<State, distribution::ThompsonMax, Single<State>>(depth, nb_iterations);
    println!("Result obtained in {} iterations: {}", nb_iterations, result);
 }
+
+/*
+   memory use for 20000 nodes:
+   base 135Mo (theorical 103Mo)
+   fused distributions Mo
+*/
