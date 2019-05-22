@@ -5,7 +5,7 @@ use super::Grammar;
 #[derive(Clone)]
 pub struct Formula<State: Grammar>(Vec<State>);
 
-/// macro to acess methods of inner vector
+/// macro to acess methods of the inner vector
 impl<State: Grammar> Deref for Formula<State>
 {
    type Target = Vec<State>;
@@ -15,7 +15,7 @@ impl<State: Grammar> Deref for Formula<State>
    }
 }
 
-/// macro to acess methods of inner vector
+/// macro to acess methods of the inner vector
 impl<State: Grammar> DerefMut for Formula<State>
 {
    fn deref_mut(&mut self) -> &mut Self::Target

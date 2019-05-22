@@ -1,10 +1,9 @@
-use rand::Rng;
-
 pub mod thompson_max;
 pub mod ucb_tuned;
 pub mod random;
 pub mod option;
 
+use rand::Rng;
 pub use thompson_max::ThompsonMax;
 pub use ucb_tuned::UcbTuned;
 pub use random::RandomSearch;

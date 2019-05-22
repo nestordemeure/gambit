@@ -2,42 +2,44 @@ use rand::Rng;
 use crate::tools::lne;
 use crate::distribution::Distribution;
 use crate::grammar::{Grammar, Formula};
-use super::Tree;
 use super::random_expand::random_expand;
-use super::*;
+use super::tree::*;
 
 //-----------------------------------------------------------------------------
 // FUNCTION
 
-/// computes the mean length of a branch in the tree
-fn mean_branch_length<Distr: Distribution>(tree: &Tree<Distr>) -> f64
+impl<Distr: Distribution> Tree<Distr>
 {
-   /// computes (number of leafs in the tree, the sum of their length)
-   fn length<Distr: Distribution>(tree: &Tree<Distr>) -> (usize, usize)
+   /// computes the mean length of a branch in the tree
+   fn mean_branch_length(&self) -> f64
    {
-      match tree
+      /// computes (number of leafs in the tree, the sum of their length)
+      fn length<Distr: Distribution>(tree: &Tree<Distr>) -> (usize, usize)
       {
-         Tree::Node(box Node { children, .. }) => children.iter().fold((0, 0), |(na, ta), child| {
-                                                                    let (n, t) = length(child);
-                                                                    (na + n, ta + t + n)
-                                                                 }),
-         Tree::Deleted => (0, 0),
-         Tree::Leaf | Tree::KnownLeaf(_) => (1, 0)
+         match tree
+         {
+            Tree::Node(box Node { children, .. }) => children.iter().fold((0, 0), |(na, ta), child| {
+                                                                       let (n, t) = length(child);
+                                                                       (na + n, ta + t + n)
+                                                                    }),
+            Tree::Deleted => (0, 0),
+            Tree::Leaf | Tree::KnownLeaf(_) => (1, 0)
+         }
       }
+      let (nb_leafs, total_length) = length(self);
+      (nb_leafs as f64) / (total_length as f64)
    }
-   let (nb_leafs, total_length) = length(tree);
-   (nb_leafs as f64) / (total_length as f64)
-}
 
-/// computes the balance factor of the tree
-/// the larger it is, the more unbalanced the tree is
-/// NOTE: we are modeling the growth of the tree with the formula:
-/// balance_factor * lne(nb_visit) = mean_formula_length
-pub fn compute_balance_factor<Distr: Distribution>(tree: &Tree<Distr>, nb_visit: usize) -> f64
-{
-   let length = mean_branch_length(tree);
-   let theorical_length = lne(nb_visit as f64);
-   length / theorical_length
+   /// computes the balance factor of the tree
+   /// the larger it is, the more unbalanced the tree is
+   /// NOTE: we are modeling the growth of the tree with the formula:
+   /// balance_factor * lne(nb_visit) = mean_formula_length
+   pub fn balance_factor(&self, nb_visit: usize) -> f64
+   {
+      let length = self.mean_branch_length();
+      let theorical_length = lne(nb_visit as f64);
+      length / theorical_length
+   }
 }
 
 /// tries to predict the mean length of a formula in the tree
@@ -122,7 +124,7 @@ pub fn no_expand<State, Distr, RNG>(mut tree: &mut Tree<Distr>,
                   Tree::Node(box Node { ref mut distribution, ref mut children }) =>
                   {
                      // we choose a child using the prior and explore it
-                     let index_best_child = best_child(children, distribution, rng, available_depth);
+                     let index_best_child = Tree::best_child(children, distribution, rng, available_depth);
                      // update the stack
                      let rule = rules[index_best_child].clone();
                      stack.pop();
@@ -140,7 +142,7 @@ pub fn no_expand<State, Distr, RNG>(mut tree: &mut Tree<Distr>,
                         ReturnType::DeleteChild =>
                         {
                            children[index_best_child] = Tree::Deleted;
-                           if children.iter().all(|t| discriminant(t) == discriminant(&Tree::Deleted))
+                           if children.iter().all(|t| t.is_deleted())
                            {
                               // no more children, we can delete this node
                               (ReturnType::DeleteChild, formula, score)

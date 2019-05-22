@@ -1,8 +1,9 @@
-use crate::grammar::{Grammar, Formula};
 pub mod single;
 pub mod pareto;
 pub mod display;
 pub mod option;
+
+use crate::grammar::{Grammar, Formula};
 pub use single::Single;
 pub use pareto::ParetoFront;
 pub use display::DisplayProgress;

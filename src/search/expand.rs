@@ -1,8 +1,7 @@
 use rand::Rng;
-use float_ord::FloatOrd;
 use crate::distribution::Distribution;
 use crate::grammar::{Grammar, Formula};
-use super::*;
+use super::tree::*;
 
 /// takes a tree, its prior, a random number generator and the available depth and expand the tree
 /// return the result of the expansion as a (ReturnType, formula, Option<score>)
@@ -55,7 +54,7 @@ pub fn expand<State, Distr, RNG>(mut tree: &mut Tree<Distr>,
                      let children = (0..rules.len()).map(|_| Tree::Leaf).collect();
                      let mut new_node = Tree::Node(Box::new(Node { distribution: Distr::new(), children }));
                      let result = expand(&mut new_node, formula, stack, rng, available_depth - 1);
-                     new_tree(result, new_node)
+                     ReturnType::new_tree(result, new_node)
                   }
                   Tree::KnownLeaf(box distribution) =>
                   {
@@ -64,12 +63,12 @@ pub fn expand<State, Distr, RNG>(mut tree: &mut Tree<Distr>,
                      let mut new_node =
                         Tree::Node(Box::new(Node { distribution: distribution.clone(), children }));
                      let result = expand(&mut new_node, formula, stack, rng, available_depth - 1);
-                     new_tree(result, new_node)
+                     ReturnType::new_tree(result, new_node)
                   }
                   Tree::Node(box Node { ref mut distribution, ref mut children }) =>
                   {
                      // we choose a child using the prior and explore it
-                     let index_best_child = best_child(children, distribution, rng, available_depth);
+                     let index_best_child = Tree::best_child(children, distribution, rng, available_depth);
                      // update the stack
                      let rule = rules[index_best_child].clone();
                      stack.pop();
@@ -83,7 +82,7 @@ pub fn expand<State, Distr, RNG>(mut tree: &mut Tree<Distr>,
                         ReturnType::DeleteChild =>
                         {
                            children[index_best_child] = Tree::Deleted;
-                           if children.iter().all(|t| discriminant(t) == discriminant(&Tree::Deleted))
+                           if children.iter().all(|t| t.is_deleted())
                            {
                               // no more children, we can delete this node
                               (ReturnType::DeleteChild, formula, score)

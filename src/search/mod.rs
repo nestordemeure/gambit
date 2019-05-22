@@ -1,177 +1,19 @@
-use rand::Rng;
+mod tree;
+mod expand;
+mod no_expand;
+mod random_expand;
+
 //use rand::FromEntropy; // for random initialisation
 use rand::SeedableRng;
 use rand_xoshiro::Xoshiro256Plus;
-use float_ord::FloatOrd;
 use crate::distribution::Distribution;
-use crate::distribution;
 use crate::grammar::{Grammar, Formula};
-use crate::result;
-use crate::result::{Result};
+use crate::result::Result;
 use crate::memory::{MemoryTracker, memory_summary, memory_used};
-use std::mem::discriminant;
-
-mod expand;
+use tree::*;
+pub use tree::{Node, Tree};
 use expand::expand;
-mod no_expand;
-use no_expand::{no_expand, compute_balance_factor};
-mod random_expand;
-
-//-----------------------------------------------------------------------------
-// TYPES
-
-/// represents a path among the infinite formula that can be written with the grammar
-/// NOTE: uses box in order to minimize the memory footprint of this type
-pub enum Tree<Distr: Distribution>
-{
-   Deleted,                // previously deleted node
-   Leaf,                   // unexplored leaf
-   KnownLeaf(Box<Distr>),  // previously explored leaf (used in memory scarce mode)
-   Node(Box<Node<Distr>>)  // node with several children
-}
-
-/// encapsulate a distribution and several children
-pub struct Node<Distr: Distribution>
-{
-   pub distribution: Distr, // the distribution of the reward coming from this node
-   pub children: Box<[Tree<Distr>]>  // the children of this node
-}
-
-/// represents the action that should be done now that we have expanded the tree
-pub enum ReturnType<Tree>
-{
-   NewTree(Tree), // replace the tree with this new tree
-   DeleteChild,   // delete the tree
-   DoNothing      // keep everything in place
-}
-
-//-----------------------------------------------------------------------------
-// FUNCTIONS
-
-impl<Distr: Distribution> Tree<Distr>
-{
-   /// creates a new, empty, tree
-   fn new() -> Self
-   {
-      Tree::Leaf
-   }
-
-   /// gets the distribution from the tree
-   /// WARNING: panics if it is not possible to get a distribution from this tree
-   fn distribution(&self) -> &Distr
-   {
-      match self
-      {
-         Tree::KnownLeaf(box distr) => distr,
-         Tree::Node(box Node { distribution: distr, .. }) => distr,
-         _ => panic!("distribution: tried to get distribution from a tree that does not have one.")
-      }
-   }
-   /// returns true if the tree is a leaf
-   fn is_unknown_leaf(&self) -> bool
-   {
-      match self
-      {
-         Tree::Leaf => true,
-         _ => false
-      }
-   }
-   /// returns true if the tree is deleted
-   fn is_deleted(&self) -> bool
-   {
-      match self
-      {
-         Tree::Deleted => true,
-         _ => false
-      }
-   }
-   /// returns true if the node type has a distribution
-   fn has_distribution(&self) -> bool
-   {
-      match self
-      {
-         Tree::KnownLeaf(_) | Tree::Node(_) => true,
-         _ => false
-      }
-   }
-}
-
-/// selects the node with the maximum score
-/// leafs having an infinite score, they are taken in priority
-fn best_child<Distr, RNG>(children: &[Tree<Distr>],
-                          distribution_father: &Distr,
-                          mut rng: &mut RNG,
-                          available_depth: i64)
-                          -> usize
-   where Distr: Distribution,
-         RNG: Rng
-{
-   // we return the first child which, by convention, should be on the shortest path to a valid formula
-   if available_depth <= 0
-   {
-      return 0;
-   }
-   // if there is a leaf, return on leaf at random
-   let leaf_index = children.iter()
-                            .enumerate()
-                            .filter(|&(_, tree)| discriminant(tree) == discriminant(&Tree::Leaf))
-                            .max_by_key(|_| rng.gen::<usize>()) // choose one at random
-                            .map(|(i, _)| i);
-   match leaf_index
-   {
-      Some(index) => index,
-      None =>
-      {
-         // if there is a children, returns the children with the maximum score
-         children.iter()
-                 .enumerate()
-                 .filter(|&(_, child)| discriminant(child) != discriminant(&Tree::Deleted))
-                 .max_by_key(|(_, child)| FloatOrd(child.distribution().score(distribution_father, &mut rng)))
-                 .map(|(i, _)| i)
-                 .expect("best_child: tried to find the best child in an empty array.")
-      }
-   }
-}
-
-/// injects the given tree in the result unless it suggest dropping
-fn new_tree<State: Grammar, Distr: Distribution>(
-   result: (ReturnType<Tree<Distr>>, Formula<State>, State::ScoreType),
-   tree: Tree<Distr>)
-   -> (ReturnType<Tree<Distr>>, Formula<State>, State::ScoreType)
-{
-   match result
-   {
-      (ReturnType::DoNothing, formula, score) => (ReturnType::NewTree(tree), formula, score),
-      _ => result
-   }
-}
-
-/// prunes all child but one
-fn prune<Distr: Distribution>(tree: &mut Tree<Distr>)
-{
-   if let Tree::Node(box Node { children, .. }) = tree
-   {
-      let max_visit: Vec<usize> =
-         children.iter().enumerate().filter(|(_, child)| child.has_distribution()).map(|(i, _)| i).collect();
-      match max_visit.as_slice()
-      {
-         [] => panic!("tried to prune a tree with zero children"),
-         [index] => prune(&mut children[*index]),
-         _ =>
-         {
-            let best_index =
-               *max_visit.iter().max_by_key(|&&i| children[i].distribution().nb_visit()).unwrap();
-            for index in max_visit
-            {
-               if index != best_index
-               {
-                  children[index] = Tree::Deleted;
-               }
-            }
-         }
-      }
-   }
-}
+use no_expand::*;
 
 //-----------------------------------------------------------------------------
 // SEARCH
@@ -217,12 +59,14 @@ pub fn search_optional<State, Distr, Res>(available_depth: usize, nb_iterations:
          Res::ScoreType: Copy + std::fmt::Debug
 {
    let result =
-      search::<State, distribution::Optional<Distr>, result::Optional<Res>>(available_depth, nb_iterations);
+      search::<State, crate::distribution::Optional<Distr>, crate::result::Optional<Res>>(available_depth,
+                                                                                          nb_iterations);
    result.get_result()
 }
 
 /// performs the search for a given number of iterations
-/// NOTE: change searching strategy once the RAM drops below the given level
+/// NOTE: change searching strategy once the available RAM drops below the given level
+///       this function can run forever without crashing the computeur
 pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
                                                 nb_iterations: usize,
                                                 free_memory_size: usize)
@@ -243,7 +87,7 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
    let mut iteration_previous = 0;
    let mut free_memory_current = memory_tracker.free_memory();
    let mut free_memory_previous = free_memory_current;
-   let mut memory_growth = 0.; // by how much does the memory grow per iteration
+   let mut memory_growth = 0.; // by how much does the memory growth per iteration
    let step_size = 1000; // refresh memory measure every step_size iterations
    while (iteration < nb_iterations) && (free_memory_current > free_memory_size)
    {
@@ -272,7 +116,7 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
    }
 
    // searches that avoids growing the memory
-   let balance_factor = compute_balance_factor(&tree, iteration);
+   let balance_factor = tree.balance_factor(iteration);
    println!("memory limits reached at iteration n°{}, balance factor is {}, free memory is {}Mo",
             iteration, balance_factor, free_memory_current);
    for _ in iteration..nb_iterations
@@ -297,6 +141,7 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
 
 /// performs the search for a given number of iterations
 /// NOTE: change searching strategy once the RAM drops below the given level
+/// TODO this fucntion is a work in progress
 pub fn nested_search<State, Distr, Res>(available_depth: usize,
                                         nb_iterations: usize,
                                         free_memory_size: usize)
@@ -341,7 +186,7 @@ pub fn nested_search<State, Distr, Res>(available_depth: usize,
          if free_memory_current < free_memory_size
          {
             println!("iteration {}, pruning tree", iteration);
-            prune(&mut tree);
+            tree.prune();
             // we cannot use RAM usage here as it is not refreshed quicly enough
             free_memory_current = free_memory_base - memory_used(&tree);
          }
@@ -359,4 +204,8 @@ pub fn nested_search<State, Distr, Res>(available_depth: usize,
 
 // TODO implement slower memory explore
 // TODO implement prune on memory limit
-// TODO put tree in a separate file
+
+// TODO the evolutionnary strategy crate has a nice idea :
+// they have a search type and an into_iter traits on it (producing a sequence of costs)
+// with that, the user can implement any stopping criteria he wishes for
+// and, if he wants to, monitor the evolution of the cost
