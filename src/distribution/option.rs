@@ -35,12 +35,9 @@ impl<UnderlyingScoreType, Distr> Distribution for Optional<Distr>
    /// returns a random score
    fn score<RNG: Rng>(&self, default_distribution: &Self, rng: &mut RNG) -> f64
    {
-      if self.nb_visit == 0
-      {
-         return std::f64::INFINITY;
-      }
       let nb_score = self.distribution.nb_visit();
-      match rng.gen_ratio((nb_score + 1) as u32, (self.nb_visit + 2) as u32) // laplacian smoothing
+      let probability_valid_formula = rng.gen_ratio((nb_score + 1) as u32, (self.nb_visit + 2) as u32); // laplacian smoothing
+      match probability_valid_formula
       {
          false => std::f64::NEG_INFINITY,
          true if nb_score == 0 => default_distribution.distribution.score(&default_distribution.distribution, rng),

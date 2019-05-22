@@ -54,13 +54,6 @@ impl Distribution for ThompsonMax
    /// gives a score to the node, we will take the node with the maximum score
    fn score<RNG: Rng>(&self, _default_distribution: &ThompsonMax, mut rng: &mut RNG) -> f64
    {
-      if self.nb_score == 0
-      {
-         std::f64::INFINITY
-      }
-      else
-      {
-         self.sample(&mut rng)
-      }
+      self.sample(&mut rng)
    }
 }

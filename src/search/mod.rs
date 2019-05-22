@@ -3,7 +3,7 @@ mod expand;
 mod no_expand;
 mod random_expand;
 
-//use rand::FromEntropy; // for random initialisation
+use rand::FromEntropy; // for random initialisation
 use rand::SeedableRng;
 use rand_xoshiro::Xoshiro256Plus;
 use crate::distribution::Distribution;
@@ -27,7 +27,8 @@ pub fn search<State, Distr, Res>(available_depth: usize, nb_iterations: usize) -
 {
    let memory_tracker = MemoryTracker::new();
 
-   let mut rng = Xoshiro256Plus::seed_from_u64(0); //from_entropy();
+   //let mut rng = Xoshiro256Plus::seed_from_u64(0);
+   let mut rng = Xoshiro256Plus::from_entropy();
    let mut tree = Tree::<Distr>::new();
    let mut result = Res::new();
    for _ in 0..nb_iterations
@@ -203,7 +204,6 @@ pub fn nested_search<State, Distr, Res>(available_depth: usize,
 }
 
 // TODO implement slower memory explore
-// TODO implement prune on memory limit
 
 // TODO the evolutionnary strategy crate has a nice idea :
 // they have a search type and an into_iter traits on it (producing a sequence of costs)
