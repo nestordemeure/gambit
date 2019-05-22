@@ -141,6 +141,26 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
 }
 
 /// performs the search for a given number of iterations
+/// NOTE: this version is suitable for a grammar that returns an Option<T> score
+/// WARNING: this function is memory hungry and could fill the RAM
+pub fn memory_limited_search_optional<State, Distr, Res>(available_depth: usize,
+                                                         nb_iterations: usize,
+                                                         free_memory_size: usize)
+                                                         -> Res
+   where State: Grammar<ScoreType = Option<Res::ScoreType>>,
+         Distr: Distribution<ScoreType = Res::ScoreType>,
+         Res: Result<State>,
+         Res::ScoreType: Copy + std::fmt::Debug
+{
+   let result = memory_limited_search::<State,
+                                      crate::distribution::Optional<Distr>,
+                                      crate::result::Optional<Res>>(available_depth,
+                                                                    nb_iterations,
+                                                                    free_memory_size);
+   result.get_result()
+}
+
+/// performs the search for a given number of iterations
 /// NOTE: change searching strategy once the RAM drops below the given level
 /// TODO this fucntion is a work in progress
 pub fn nested_search<State, Distr, Res>(available_depth: usize,
