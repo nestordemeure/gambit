@@ -1,4 +1,4 @@
-use crate::grammar::{Grammar, Formula};
+use gambit::grammar::{Grammar, Formula};
 
 //-------------------------------------------------------------------------------------------------
 // TYPE

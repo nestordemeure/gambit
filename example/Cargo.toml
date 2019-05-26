@@ -1,0 +1,10 @@
+[package]
+name = "example"
+version = "0.1.0"
+authors = ["Nestor Demeure <nestor@nestor-HP-ProBook-650-G1>"]
+edition = "2018"
+
+[dependencies]
+gambit = { path = "../gambit" }
+primes = "0.2.3"
+lazy_static = "1.3.0"

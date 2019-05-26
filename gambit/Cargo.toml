@@ -1,0 +1,12 @@
+[package]
+name = "gambit"
+version = "0.1.0"
+authors = ["Nestor Demeure"]
+edition = "2018"
+
+[dependencies]
+rand = "0.6.5"
+rand_xoshiro = "0.1.0"
+float-ord = "0.2.0"
+systemstat = "0.1.4"
+linked-list = "0.0.3"

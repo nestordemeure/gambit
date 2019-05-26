@@ -27,5 +27,3 @@ pub trait Grammar
       formula.len()
    }
 }
-
-// TODO implement macro that derive grammar from simple representation

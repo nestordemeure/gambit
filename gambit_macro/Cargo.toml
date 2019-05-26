@@ -1,0 +1,13 @@
+[package]
+name = "gambit_macro"
+version = "0.1.0"
+authors = ["Nestor Demeure <nestor@nestor-HP-ProBook-650-G1>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+gambit = { path = "../gambit" }
+syn = "0.15.34"
+quote = "0.6.12"

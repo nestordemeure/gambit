@@ -76,6 +76,7 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
          Distr: Distribution<ScoreType = State::ScoreType>,
          Res: Result<State, ScoreType = State::ScoreType>
 {
+   let free_memory_size: i64 = free_memory_size as i64;
    let memory_tracker = MemoryTracker::new();
 
    let mut rng = Xoshiro256Plus::seed_from_u64(0); //from_entropy();
@@ -86,7 +87,7 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
    // uses a simple linear model to avoid measuring memory at each iteration
    let mut iteration = 0;
    let mut iteration_previous = 0;
-   let mut free_memory_current = memory_tracker.free_memory();
+   let mut free_memory_current = memory_tracker.free_memory() as i64;
    let mut free_memory_previous = free_memory_current;
    let mut memory_growth = 0.; // by how much does the memory growth per iteration
    let step_size = 1000; // refresh memory measure every step_size iterations
@@ -105,12 +106,12 @@ pub fn memory_limited_search<State, Distr, Res>(available_depth: usize,
       // updates iteration and free_memory_current
       iteration += 1;
       free_memory_current =
-         free_memory_previous + (((iteration - iteration_previous) as f64) * memory_growth) as usize;
-      if ((iteration_previous + iteration) % step_size == 0) || (free_memory_current < free_memory_size)
+         free_memory_previous + (((iteration - iteration_previous) as f64) * memory_growth) as i64;
+      if ((iteration - iteration_previous) % step_size == 0) || (free_memory_current < free_memory_size)
       {
-         free_memory_current = memory_tracker.free_memory();
-         memory_growth =
-            (free_memory_current - free_memory_previous) as f64 / (iteration - iteration_previous) as f64;
+         free_memory_current = memory_tracker.free_memory() as i64;
+         memory_growth = ((free_memory_current as f64) - (free_memory_previous as f64))
+                         / (iteration - iteration_previous) as f64;
          iteration_previous = iteration;
          free_memory_previous = free_memory_current;
       }
@@ -172,6 +173,7 @@ pub fn nested_search<State, Distr, Res>(available_depth: usize,
          Res: Result<State, ScoreType = State::ScoreType>
 {
    let memory_tracker = MemoryTracker::new();
+   let free_memory_size: i64 = free_memory_size as i64;
 
    let mut rng = Xoshiro256Plus::seed_from_u64(0); //from_entropy();
    let mut tree = Tree::<Distr>::new();
@@ -179,9 +181,9 @@ pub fn nested_search<State, Distr, Res>(available_depth: usize,
 
    // searches while there is memory available
    // uses a simple linear model to avoid measuring memory at each iteration
-   let free_memory_base = memory_tracker.free_memory();
+   let free_memory_base = memory_tracker.free_memory() as i64;
    let mut iteration_previous = 0;
-   let mut free_memory_current = free_memory_base - memory_used(&tree);
+   let mut free_memory_current = free_memory_base - (memory_used(&tree) as i64);
    let mut free_memory_previous = free_memory_current;
    let mut memory_growth = 0.; // by how much does the memory grow per iteration
    let step_size = 10000; // refresh memory measure every step_size iterations
@@ -199,17 +201,17 @@ pub fn nested_search<State, Distr, Res>(available_depth: usize,
       }
       // updates free_memory_current
       free_memory_current =
-         free_memory_previous + (((iteration - iteration_previous) as f64) * memory_growth) as usize;
-      if ((iteration_previous + iteration) % step_size == 0) || (free_memory_current < free_memory_size)
+         free_memory_previous + (((iteration - iteration_previous) as f64) * memory_growth) as i64;
+      if ((iteration - iteration_previous) % step_size == 0) || (free_memory_current < free_memory_size)
       {
          // has a direct computation of the memory used is an expensive operation, we need a large step size to amortize the cost
-         free_memory_current = free_memory_base - memory_used(&tree);
+         free_memory_current = free_memory_base - (memory_used(&tree) as i64);
          if free_memory_current < free_memory_size
          {
             println!("iteration {}, pruning tree", iteration);
             tree.prune();
             // we cannot use RAM usage here as it is not refreshed quicly enough
-            free_memory_current = free_memory_base - memory_used(&tree);
+            free_memory_current = free_memory_base - (memory_used(&tree) as i64);
          }
          memory_growth =
             (free_memory_current - free_memory_previous) as f64 / (iteration - iteration_previous) as f64;

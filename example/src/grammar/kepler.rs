@@ -1,7 +1,17 @@
-use crate::grammar::{Grammar, Formula};
+use gambit::grammar::{Grammar, Formula};
 
 //-------------------------------------------------------------------------------------------------
 // TYPE
+
+/// represents the functions that can appear in the code
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum Function
+{
+   Cos,
+   Sin,
+   Log,
+   Sqrt
+}
 
 /// represents a state
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -10,10 +20,7 @@ pub enum State
    Expr,
    Base,
    Function,
-   FCos,
-   FSin,
-   FLog,
-   FSqrt,
+   F(Function),
    Operator,
    O(char),
    Variable,
@@ -24,43 +31,34 @@ pub enum State
 //-------------------------------------------------------------------------------------------------
 // FUNCTIONS
 
-impl State
+impl Function
 {
-   /// returns true if the given state represents a function
-   fn is_function(&self) -> bool
+   /// returns a string representation of the function
+   fn to_string(self) -> String
    {
       match self
       {
-         State::FCos | State::FLog | State::FSin | State::FSqrt => true,
-         _ => false
-      }
-   }
-   /// returns a string representation of the state
-   fn to_string(&self) -> String
-   {
-      match self
-      {
-         State::FCos => "cos".to_string(),
-         State::FLog => "log".to_string(),
-         State::FSin => "sin".to_string(),
-         State::FSqrt => "sqrt".to_string(),
-         _ => unimplemented!()
+         Function::Cos => "cos".to_string(),
+         Function::Log => "log".to_string(),
+         Function::Sin => "sin".to_string(),
+         Function::Sqrt => "sqrt".to_string()
       }
    }
 
-   fn to_function(&self) -> fn(f64) -> f64
+   /// returns the function represented
+   fn to_function(self) -> fn(f64) -> f64
    {
       match self
       {
-         State::FCos => f64::cos,
-         State::FLog => f64::ln,
-         State::FSin => f64::sin,
-         State::FSqrt => f64::sqrt,
-         _ => panic!("this is not a function")
+         Function::Cos => f64::cos,
+         Function::Log => f64::ln,
+         Function::Sin => f64::sin,
+         Function::Sqrt => f64::sqrt
       }
    }
 }
 
+/// returns the operator represented
 fn to_operator(c: char) -> fn(f64, f64) -> f64
 {
    match c
@@ -74,11 +72,14 @@ fn to_operator(c: char) -> fn(f64, f64) -> f64
    }
 }
 
-/// computes a formula
-fn compute(formula: &[State]) -> Box<(Fn(f64) -> f64)>
+//-------------------------------------------------------------------------------------------------
+// INTERPRETATION
+
+/// interprets a formula into a function using the third futamura projection
+fn interpret(formula: &[State]) -> Box<(Fn(f64) -> f64)>
 {
    /// computes the first element of the formula and returns its value followed with any leftover
-   fn compute_rec(formula: &[State]) -> (Box<(Fn(f64) -> f64)>, &[State])
+   fn interpret_rec(formula: &[State]) -> (Box<(Fn(f64) -> f64)>, &[State])
    {
       match formula
       {
@@ -96,24 +97,24 @@ fn compute(formula: &[State]) -> Box<(Fn(f64) -> f64)>
          [formula.., State::O(c)] =>
          {
             let fc = to_operator(*c);
-            let (fx, formula) = compute_rec(formula);
-            let (fy, formula) = compute_rec(formula);
+            let (fx, formula) = interpret_rec(formula);
+            let (fy, formula) = interpret_rec(formula);
             let f = Box::new(move |variable| fc(fx(variable), fy(variable)));
             (f, formula)
          }
-         [formula.., fun] if fun.is_function() =>
+         [formula.., State::F(fun)] =>
          {
             let ff = fun.to_function();
-            let (fx, formula) = compute_rec(formula);
+            let (fx, formula) = interpret_rec(formula);
             let f = Box::new(move |variable| ff(fx(variable)));
             (f, formula)
          }
-         [.., uncomputable] => panic!("Tried to compute a non terminal state : {:?}", uncomputable),
-         [] => panic!("Tried to compute the empty formula.")
+         [.., uncomputable] => panic!("Tried to interpret a non terminal state : {:?}", uncomputable),
+         [] => panic!("Tried to interpret the empty formula.")
       }
    }
    // checks wether there is any leftover
-   match compute_rec(formula)
+   match interpret_rec(formula)
    {
       (result, []) => result,
       (_, leftover) => panic!("There are some leftover states : {:?} => {:?}", formula, leftover)
@@ -127,6 +128,7 @@ fn compute(formula: &[State]) -> Box<(Fn(f64) -> f64)>
 impl Grammar for State
 {
    type ScoreType = Option<f64>;
+
    /// represents the root of a formula
    fn root_state() -> State
    {
@@ -147,7 +149,12 @@ impl Grammar for State
                                                                               State::Number]],
          State::Operator => ['+', '-', '/'].iter().map(|&o| vec![State::O(o)]).collect(),
          State::Number => (1..=4).map(|n| vec![State::N(n)]).collect(),
-         State::Function => vec![vec![State::FCos], vec![State::FSin], vec![State::FLog], vec![State::FSqrt]],
+         State::Function =>
+         {
+            [Function::Cos, Function::Sin, Function::Log, Function::Sqrt].iter()
+                                                                         .map(|&f| vec![State::F(f)])
+                                                                         .collect()
+         }
          _ => vec![]
       }
    }
@@ -169,13 +176,13 @@ impl Grammar for State
                let result = format!("{} {} {}", x, c, y);
                (result, formula)
             }
-            [formula.., f] if f.is_function() =>
+            [formula.., State::F(f)] =>
             {
                let (x, formula) = to_string_rec(formula);
                let result = format!("{}({})", f.to_string(), x);
                (result, formula)
             }
-            [.., uncomputable] => panic!("Tried to compute a non terminal state : {:?}", uncomputable),
+            [.., uncomputable] => panic!("Tried to display a non terminal state : {:?}", uncomputable),
             [] => panic!("Tried to turn the empty formula into a string.")
          }
       }
@@ -190,7 +197,7 @@ impl Grammar for State
    /// evaluates a formula
    fn evaluate(formula: &Formula<State>) -> Self::ScoreType
    {
-      let f = compute(formula); // evaluate the formula once to reuse it multiple times
+      let f = interpret(formula); // interprets the formula once to reuse it multiple times
       let distance = vec![0.72, 1.0, 1.52, 5.20, 9.53, 19.10];
       let period = vec![0.61, 1.00, 1.84, 11.90, 29.40, 83.50];
       let error: f64 = period.iter()
