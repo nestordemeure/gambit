@@ -33,7 +33,7 @@ pub fn grammar(input: TokenStream) -> TokenStream
    let state_typename = &state_typedef.ident;
    let state_names: Vec<&syn::Ident> = state_typedef.variants.iter().map(|variant| &variant.ident).collect();
    let root_state = state_names.first().expect("You need to have at least one state that is used as a root.");
-   println!("typename: {}, variants:{:?}", state_typename, state_names);
+   //println!("typename: {}, variants:{:?}", state_typename, state_names);
 
    // extracts the rules function
    // NOTE: we could check the types to insure that the fucntion is properly formated
@@ -82,7 +82,7 @@ pub fn grammar(input: TokenStream) -> TokenStream
          /// represents the root of a formula
          fn root_state() -> #state_typename
          {
-            #root_state
+            #state_typename::#root_state
          }
 
          /// expands a state into potential substitution rules
@@ -98,14 +98,8 @@ pub fn grammar(input: TokenStream) -> TokenStream
             unimplemented!()
          }
 
-         //#fn_evaluate
          /// evaluates a formula
-         fn evaluate(formula: &Formula<#state_typename>) -> Self::ScoreType
-         {
-            let value = interpret(formula);
-            let score = (2019 - value).abs() as f64;
-            -score
-         }
+         #fn_evaluate
 
          //TODO: optional cost function
       }
