@@ -76,10 +76,10 @@ fn to_operator(c: char) -> fn(f64, f64) -> f64
 // INTERPRETATION
 
 /// interprets a formula into a function using the third futamura projection
-fn interpret(formula: &[State]) -> Box<(Fn(f64) -> f64)>
+fn interpret(formula: &[State]) -> Box<(dyn Fn(f64) -> f64)>
 {
    /// computes the first element of the formula and returns its value followed with any leftover
-   fn interpret_rec(formula: &[State]) -> (Box<(Fn(f64) -> f64)>, &[State])
+   fn interpret_rec(formula: &[State]) -> (Box<(dyn Fn(f64) -> f64)>, &[State])
    {
       match formula
       {

@@ -41,10 +41,10 @@ fn interpret_bits(formula: &[State]) -> (i64, &[State])
 }
 
 /// interprets a formula into a function using the third futamura projection
-fn interpret(formula: &[State]) -> Box<(Fn(i64) -> i64)>
+fn interpret(formula: &[State]) -> Box<(dyn Fn(i64) -> i64)>
 {
    /// computes the first element of the formula and returns its value followed with any leftover
-   fn interpret_rec(formula: &[State]) -> (Box<(Fn(i64) -> i64)>, &[State])
+   fn interpret_rec(formula: &[State]) -> (Box<(dyn Fn(i64) -> i64)>, &[State])
    {
       match formula
       {

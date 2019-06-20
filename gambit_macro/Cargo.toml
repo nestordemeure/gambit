@@ -7,7 +7,10 @@ edition = "2018"
 [lib]
 proc-macro = true
 
+[dependencies.syn]
+version = "0.15.36"
+features = ["full"]
+
 [dependencies]
 gambit = { path = "../gambit" }
-syn = "0.15.34"
 quote = "0.6.12"

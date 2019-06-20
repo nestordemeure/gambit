@@ -6,5 +6,6 @@ edition = "2018"
 
 [dependencies]
 gambit = { path = "../gambit" }
+gambit_macro = { path = "../gambit_macro" }
 primes = "0.2.3"
 lazy_static = "1.3.0"
