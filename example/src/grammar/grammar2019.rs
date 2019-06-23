@@ -57,7 +57,6 @@ fn compute(formula: &[State]) -> i64
 impl Grammar for State
 {
    type ScoreType = f64; //Option<f64>;
-   
    /// represents the root of a formula
    fn root_state() -> State
    {
@@ -70,11 +69,13 @@ impl Grammar for State
    {
       match self
       {
-         State::Expr => vec![vec![State::One], 
-                        vec![State::Add, State::Expr, State::Expr], 
-                        vec![State::Mul, State::Factor, State::Factor]],
-         State::Factor => vec![vec![State::Add, State::Expr, State::Expr], 
-                               vec![State::Mul, State::Factor, State::Factor]],
+         State::Expr => vec![vec![State::One],
+                             vec![State::Add, State::Expr, State::Expr],
+                             vec![State::Mul, State::Factor, State::Factor]],
+         State::Factor =>
+         {
+            vec![vec![State::Add, State::Expr, State::Expr], vec![State::Mul, State::Factor, State::Factor]]
+         }
          _ => vec![]
       }
    }

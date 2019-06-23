@@ -1,11 +1,115 @@
 #![recursion_limit = "128"]
 #![feature(proc_macro_diagnostic)]
+#![feature(box_patterns)]
 
 //use gambit::grammar;
 extern crate proc_macro;
+use std::collections::HashSet;
 use self::proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Item, File, Expr, parse_quote};
+use syn::*;
+
+//-----------------------------------------------------------------------------
+// STATE TYPEDEF
+
+/// extracts the name of the state type, the rootstate and a set of all state names
+/// TODO: we could assert that all variants are simple
+fn get_states(items: &Vec<Item>) -> (&Visibility, &Ident, &Ident, HashSet<&Ident>)
+{
+   // finds the states enum amongst the items
+   let state_typedef = items.iter()
+                            .find_map(|item| match item
+                            {
+                               Item::Enum(states) => Some(states),
+                               _ => None
+                            })
+                            .expect("You forgot to define an enum to represent the states.");
+
+   // visibility of the type
+   let visibility = &state_typedef.vis;
+
+   // name of the type
+   let state_typename = &state_typedef.ident;
+
+   // first variant which is used as rootstate
+   let root_state = &state_typedef.variants.first().expect("You need to have at least one state that is used as a root.").into_value().ident;
+
+   // vector of all variants
+   let state_names: HashSet<&Ident> = state_typedef.variants.iter().map(|variant| &variant.ident).collect();
+
+   (visibility, state_typename, root_state, state_names)
+}
+
+//-----------------------------------------------------------------------------
+// RULES
+
+/// returns all of the rules as a hashmap of state->Vec<TokenStream>
+/// TODO: we could check the types to insure that the fucntion is properly formated
+fn get_rules(items: &Vec<Item>)
+{
+   // extracts the rules item
+   let fn_rules = items.iter()
+                       .find_map(|item| match item
+                       {
+                          Item::Fn(rules) if rules.ident == "rules" => Some(rules),
+                          _ => None
+                       })
+                       .expect("You forgot to define a 'rules' function.");
+
+   // get iterator of inputs of type :
+   // https://docs.rs/syn/0.15.36/syn/enum.FnArg.html
+   // should ignore the first input and consider the others as captured
+   //let inputs = fn_rules.decl.inputs.iter();
+   // vector of statements
+   if let Some(Stmt::Expr(Expr::Match(match_expression))) = fn_rules.block.stmts.first()
+   {
+      for arm in &match_expression.arms
+      {
+         let pattern = arm.pats.iter().next().expect("you did not set a pattern for one of the rules");
+         match pattern
+         {
+            Pat::Ident(patident) => 
+            {
+               // matched state
+               let state = &patident.ident;
+               // associated expression
+               let expr = &arm.body;
+               let tokens = quote!{#expr};
+               println!("{} => {}", state, tokens);
+               // TODO redact function that extracts States from tokenStream
+            }
+            //Pat::Struct(_) => println!("struct"),
+            _ => panic!("You have used a pattern that is not authorized instead of a state in your 'rules' function.")
+         }
+      }
+   }
+   else
+   {
+      panic!("You forgot to define a match in your 'rules' function.")
+   }
+}
+
+//-----------------------------------------------------------------------------
+// EVALUATE
+
+/// returns the evaluate function and its return type
+/// TODO: we could check the input type of the function
+fn get_evaluate(items: &Vec<Item>) -> (&ItemFn, &Type)
+{
+   items.iter().find_map(|item| match item
+   {
+      Item::Fn(evaluate) if evaluate.ident == "evaluate" => match &evaluate.decl.output
+      {
+         ReturnType::Type(_, box resultType) => Some((evaluate, resultType)),
+         _ => None
+      },
+      _ => None
+   })
+   .expect("You forgot to define an 'evaluate' function.")
+}
+
+//-----------------------------------------------------------------------------
+// MAIN
 
 /*
  * input contains :
@@ -22,50 +126,22 @@ pub fn grammar(input: TokenStream) -> TokenStream
    let items = parse_macro_input!(input as File).items;
 
    // extracts the states enum
-   let state_typedef = items.iter()
-                            .find_map(|item| match item
-                            {
-                               Item::Enum(states) => Some(states),
-                               _ => None
-                            })
-                            .expect("You forgot to define an enum to represent the states.");
-   // extracts the name of the state type and its variants
-   let state_typename = &state_typedef.ident;
-   let state_names: Vec<&syn::Ident> = state_typedef.variants.iter().map(|variant| &variant.ident).collect();
-   let root_state = state_names.first().expect("You need to have at least one state that is used as a root.");
-   //println!("typename: {}, variants:{:?}", state_typename, state_names);
+   let (state_type_visibility, state_typename, root_state, states) = get_states(&items);
 
    // extracts the rules function
-   // NOTE: we could check the types to insure that the fucntion is properly formated
-   let fn_rules = items.iter()
-                       .find_map(|item| match item
-                       {
-                          Item::Fn(rules) if rules.ident == "rules" => Some(rules),
-                          _ => None
-                       })
-                       .expect("You forgot to define a 'rules' function.");
+   get_rules(&items);
 
    // extracts the evaluate function
-   // NOTE: we could check the types to insure that the fucntion is properly formated
-   let (fn_evaluate, score_typename) =
-      items.iter()
-           .find_map(|item| match item
-           {
-              Item::Fn(evaluate) if evaluate.ident == "evaluate" => match &evaluate.decl.output
-              {
-                 syn::ReturnType::Type(_, resultType) => Some((evaluate, resultType)),
-                 _ => None
-              },
-              _ => None
-           })
-           .expect("You forgot to define an 'evaluate' function.");
-   //println!("score : {:#?}", score_typename);
+   let (fn_evaluate, score_typename) = get_evaluate(&items);
 
    //let item_evaluate = item.find();
    let expanded = quote! {
       // type representing the states
       #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-      #state_typedef
+      #state_type_visibility enum #state_typename
+      {
+         #(#states),*
+      }
 
       /// computes a formula
       fn interpret(formula: &[#state_typename]) -> i64
@@ -95,6 +171,7 @@ pub fn grammar(input: TokenStream) -> TokenStream
          /// turn a formula into a displayable string
          fn to_string(formula: &Formula<#state_typename>) -> String
          {
+            // here stringify!(#expr) might be useful
             unimplemented!()
          }
 
