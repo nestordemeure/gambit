@@ -14,3 +14,4 @@ features = ["full"]
 [dependencies]
 gambit = { path = "../gambit" }
 quote = "0.6.12"
+proc-macro2 = "0.4.30"
